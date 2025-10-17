@@ -1,0 +1,521 @@
+<!-- quarto preview PostMortem.qmd pour la preview du document -->
+<!-- quarto render PostMortem.qmd  pour créer le html-->
+<!-- Dans les commentaires, enlever les $ -->
+---
+title: "Postmortem ERCOT Juin 2025"
+author: "Florian ETIENNE"
+date: today
+toc: true
+jupyter: postmortem
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  cache: false
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+- MAJ de modèle automatique à partir du rawfile le plus récent (En cours)
+    - Mettre à jour le modèle de dayzer avec le CRR le plus récent, ajustement des
+    requête par rapport à des bugs.
+- Projet de validation (En cours)
+    - Jared a presque fini de son bord, la prochaine étape serait de faire un confluence pour expliquer comment créer des requêtes de validations.
+- NerdMonkey (Outil d'analyse de contrainte) (En pause)
+- Refonte des scripts d’ajout de contraintes automatiques pour ERCOT (A faire)
+- Faire une étude de contingence (A faire)
+- NerdDogPerCluster (ML pour sortir les contraintes fortes) (Pause)
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+
+conn=init_connection()
+```
+
+## 📈 Evolution de la load et du vents
+
+
+```{python}
+#| code-fold: true
+#| eval: true
+df_Load=sq.get_Load(['ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_Default'
+                  ,'ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_LoadMax'
+                  ,'ERCOT_1MA_LoadNormal_SAI'
+                  ,'ERCOT_1MA_LoadMax_SAI'
+                  ,'ERCOT_1MA_LoadMin_SAI']
+                  ,'2020-01-01'
+                  ,'2025-06-30'
+                  ,conn
+                  )
+df_Wind=sq.get_Wind(['ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_Default'
+                  ,'ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_WindMaxExt'
+                  ,'ERCOT_1MA_WindMinExt']
+                  ,'2020-01-01'
+                  ,'2025-06-30'
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL','2025-06-01','2025-06-30')
+gu.create_graph_wind(df_Wind,'2025-06-01','2025-06-30')
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+#| code-fold: true
+#| eval: true
+#| cache: false
+df_PM=sq.get_PostMortem(5
+                        ,'2025-06-01'
+                        ,'2025-06-30'
+                        ,['ERCOT_1MA_Default','ERCOT_1MA_AvgSP','ERCOT_1MA_AvgSP_1month','ERCOT_1MA_NerdDog']
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+```
+
+
+## 🕵️ Analyses des contraintes
+```{python}
+#| code-fold: true
+#| cache: true
+# paramètres généraux
+pool_id=5
+ftrstartdate='2025-06-01'
+ftrenddate='2025-06-30'
+histostartdate='2025-03-01'
+histoenddate='2025-06-30'
+scenario_flows=['ERCOT_1MA_Default','ERCOT_1DA_Default','ERCOT_1MA_DA_LIM','ERCOT_1MA_Outages']
+scenario_first_priority='ERCOT_1DA_Default'
+scenario_sf=['ERCOT_1MA_Default','ERCOT_1DA_Default','ERCOT_1MA_Outages']
+scenario_histo_sp=['ERCOT_1MA_Default',
+                    'ERCOT_1DA_Default',
+                    'ERCOT_1MA_DA_LIM',
+                    'ERCOT_1MA_LoadMax',
+                    'ERCOT_1MA_NerdDog',
+                    'ERCOT_1MA_NerdDogPerCluster_V1'
+                    ]
+```
+
+<details>
+  <summary>362548 6437__F:DMTSCOS5</summary>
+
+**Analyse prebid François:**
+
+La contrainte a été forte été 2023 en raison de transmission outage.
+Elle a aussi été forte au printemps 2025 en raison de transmission outage. 
+
+Des transmission outage sont prévue (2) aussi pour Juin, mais leur effet semble s'annuler et ne semble pas tant que ca faire bindé la contrainte. 
+En raison de son historique en été2023 et printemps 2025, les ShadowCost sont élévé. 
+En Mai2025, les shadowcost sont vraiment plus élévé que les ShadowPrice yet, malgré la présence des transmission outage qui ont fait bindé la ctr en Avril (et qui se termine a la mi mai).
+Bref, j'ai comme l'impression que la contrainte pourrait bindé, mais que les shadowprice pourrait être plus faible que les shadowCost, d'ou un potentiel short.
+Mais ca pourrait être risqué, c'est pouruqoi je met le potentiel a 2. 
+
+Perso, je ne suis pas assez confiant pour suggéré ce path sans qu'un deuxième avis me secondes ou me réfute.
+
+FE: Le short me semble très risqué, si vous voulez aller de l'avant avec il faudrait le faire avec des prix très conservateurs
+
+HB ou EA: Path shorté, en OFF et WDON.
+
+
+**Analyse postbid:**
+
+Cumule de plusieurs outages qui l'a fait bind. Elle est dépendante de la load et de la load industriel.
+ 
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50006479,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>377398	POT_PEAR_1:SPLSFAS9</summary>
+
+**Analyse postbid:**
+
+Contrainte impacté par le solaire, notamment l'unité Morrow Lake Solar
+installé en septembre 2024, qui rajoute 6MW sur la contrainte.
+
+le projet de mise à jour des modèles pourrait améliorer
+les flows de dayzer.
+Egalement un scénario SolMax pourrait nous permettre de capter ce genre de contrainte
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50017450,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>378350	ABNTHW_SERDEV1_1:SABIABM8</summary>
+
+**Analyse postbid:**
+Contrainte mieux capter avec le modèle 239, Ajouté dans le modèle le 18 Mai
+après les bids. On n'avait donc pas la contriante dans nos simulations de Juin.
+La contrainte a eu un abaissement de limite le 22 mai ce qui semble être un des facteurs de bind de la contrainte.
+En exploitant les données du fichiers "rating report" on aurait pu voir l'abaissement de limite sur cette ligne.
+Cet abaissement est sans doute là pour protéger la ligne durant l'été.
+
+
+Egalement pour la capter, ils nous auraient fallu mettre à jour le modèle avec les données les plus récentes
+et faire une étude de contingence.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50028247,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>370549	HAINE__LA_PAL1_1:MHARNED5</summary>
+
+**Analyse prebid Florian:**
+
+
+"Congestion forte dans le sud d'ERCOT, Bind actuellement à cause de l'outage burns riohondo qui devrait finir le 15mai., beaucoup de travaux dans la zone  Lower Rio Grande Valley  (LRGV) pour réduire la congestion, Lorsque Burns Rio hondo aura terminé, sa ligne devrait être augmenté. HAINE_LA PALMA devrait être moins à risque de bind sans l'outage HAINE_LA_PALMA. 
+
+ChatGPT DeepSearch:The HAINE__LA_PAL1_1:MHARNED5 constraint represents a critical congestion point in ERCOT’s Lower Rio Grande Valley, reflecting the challenges of integrating rapid renewable generation growth in a transmission-constrained area. It is centered on the Haine Drive – La Palma 138 kV line in Brownsville’s vicinity, which often must shoulder large flows when key 345 kV/138 kV elements are out of service. This constraint is typically activated to protect system reliability under a severe (N-2) contingency, and has historically incurred notable congestion costs by limiting generation in the valley.
+
+Le bind de la contrainte devrait être moins élevé. A shorter avec des prx conservateurs."
+
+HB: Je ne suis pas très à l'aise de shorter cette contrainte encore, surtout l'été.
+
+**Analyse postbid:**
+
+L'outage était prévu jusqu'au 19 juin avant bid. Depuis qu'ill a terminé les flows sur la contrainte sont loin de la limite
+et la contrainte ne bind plus en RT.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50011660,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>370091	1710__C:DSALHUT5</summary>
+
+**Analyse prebid Florian:**
+
+Contrainte forte l'été, 2023 et 2024, contrainte de load. Devrait être forte pour Juin 2025 également, elle risque d'être pricé mais se positionner long tout de même.
+
+
+HB: On est déjà long dessus. J'ai enlevé tous les shorts qui avaient RHESS2 en Source
+Path ajouté en plusieurs tranches.
+
+**Analyse postbid:**
+
+Contrainte dépendante de la load, forte l'été. A partir du 23 Mai, il y a une forte réduction des flows dû à un outage.
+Ce qui ne semble pas être le cas en vrai. Voir si avec le projet de MAJ automatique, on améliorerait ces résultats. 
+Avec le package 239 cette forte réduction disparait.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50011309,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>377018	OLS_JNES_1:XHA2S89</summary>
+
+**Analyse postbid:**
+Contrainte dépendante de la load et de l'outage 
+OLS_SYCA1 prévu du 2 juin au 15 juillet. L'outage était prévu avant bid,
+mais les flows étaient légèrement en dessous de la limite ce qui ne l'a pas fait bind
+en Default, on avait tout de même un signal en Load Max.
+
+
+Peut être qu'avec une MAJ du modèle on aurait eu un signal en 1MA_Default.
+Analyser les contraintes qui n'ont jamais bindé et dont les flows sont très proche de la limite dû à un outage.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50017102,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>25102117	ORNT_REDCRE1_1:MXMU158</summary>
+
+**Analyse prebid ORNT_REDCRE1_1:SGARBAL8:**
+
+Contrainte impacté par R-EL_MULBERRY prévu du 28 avril au 27 novembre et par R-WH_MULBERRY prévu du 30 avril au 13 juin.
+LA contrainte pourrait donc continuer de binder et affecter les mêmes paths que la contrainte concho_vrbs. Se positionner long
+
+**Analyse postbid:**
+
+Contrainte ajouté après bid. 
+Script d'ajout des contraintes à améliorer,
+La contrainte bind depuis que la contingence est monitoré. (1er Mai)
+Il n'y a pas un facteur unique qui cause son bind. Mais plusieurs facteurs
+qui cause un dépassement de limite.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50028726,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>373772 CONCHO_VRBS1_1:DBRNCMN8</summary>
+
+**Analyse prebid Florian:**
+
+Contrainte dont l'outage de CB 6230 MILES réduit drastiquement les flows sur la ligne. lorsqu'il a lieu, les dates de cet outage changent très rapidement. d'où le fait qu'on va voir des flows sur la ligne dans panorama puis d'un coup pas de flows. A priori l'outage devrait s'arrêter le 20 Mai ce qui ferait que la contrainte binderait en Juin. Ce positionner lond dessus.
+
+Path bidé. Le SF est très faible et il est assez difficile de s'exposer sur cette contrainte
+
+
+**Analyse postbid:**
+
+Analyse en Prebid bonne, il y a eu quelques journées en Juin où la contrainte a bindé fortement. 
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50014192,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>4500014 6056__Z:DBAKCED5</summary>
+
+**Analyse postbid:**
+
+Circuit parallèle à 6056__A. 6056__A est en outage depuis le 14 Mai et ce jusqu'au 22 septembre. Le circuit 6056__Z l'a donc remplacé.
+6056__Z  va donc binder à la place de 6056__A. Dans dayzer il est préfèrable de regarder les flows sur 6056__A, la ligne 6056__Z étant en OOS. 
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50028584,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>25102116 SEA_AAT1:MDFRYSK8</summary>
+
+**Analyse prebid SEA_AAT1:DSALTM58:**
+
+FETIENNE:
+Contrainte qui avait bind fortement en Mai et Juin 2024 à cause d'outages et de la load. En juin plusieurs outages sont prévu qui pourrait impacter la contrainte. 35050_B du 11 au 30 juin. et OLS_SYCA du 2 juin au 15 juillet. Elle pourrait binder fortement avec la load plus élevé en été. Soyez long sur cette contrainte!
+
+**Analyse postbid:**
+
+Plusieurs outages qui impactent la contrainte. La contingence a commencné à être monitoré à partir du 25 Mai, il aurait été difficile d'avoir 
+la contrainte exact avant bid.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50028676,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>4500244	VND_PLCE_1:DRICLOU8</summary>
+
+**Analyse postbid:**
+Contrainte ajouté après bid, Bind à cause des outages RAY_VANB1 et FOR_INEZ1 prévu du 23 au 30 juin.
+Les outages fuent visible qu'à partir du 21 Mai.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50028711,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>300057	LENSW_PUTN2_1:BASE CASE</summary>
+
+**Analyse postbid:**
+Contrainte qui était en outage du fait d'un upgrade sur la ligne principale et qui a terminé
+le 22 mai. Les flows en mensuels étaient mal modélisés. 
+
+A voir si avec notre maj de modèle on aurait pu la capter.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50026409,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+

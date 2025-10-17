@@ -1,0 +1,386 @@
+---
+title: "Postmortem ERCOT Fevrier 2025"
+author: "Florian ETIENNE"
+date: today
+toc: true
+jupyter: postmortem
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+
+- Refonte de la présentation PostMortem (Fait)
+- NerdMonkey (En cours)
+    - Améliration de l'affiche de certains tableau 
+    - Ajout de description plus étoffée sur les contraintes.
+- MAJ de modèle automatique à partir du rawfile le plus récent (En cours)
+    - Mettre à jour le modèle de dayzer avec le CRR le plus récent, puis mettre à jour avec le DA le plus récent.
+- Refonte des scripts d’ajout de contraintes automatiques pour ERCOT (A faire)
+- Faire une étude de contingence (A faire)
+- NerdDogPerCluster (A faire)
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+
+conn=init_connection()
+```
+
+## 📈 Evolution de la load et du vents
+
+
+```{python}
+#| code-fold: true
+
+df_Load=sq.get_Load(['ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_Default'
+                  ,'ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_LoadMax'
+                  ,'ERCOT_1MA_LoadNormal_SAI'
+                  ,'ERCOT_1MA_LoadMax_SAI'
+                  ,'ERCOT_1MA_LoadMin_SAI']
+                  ,'2020-01-01'
+                  ,'2025-03-31'
+                  ,conn
+                  )
+df_Wind=sq.get_Wind(['ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_Default'
+                  ,'ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_WindMaxExt'
+                  ,'ERCOT_1MA_WindMinExt']
+                  ,'2020-01-01'
+                  ,'2025-03-31'
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL','2025-03-01','2025-03-31')
+gu.create_graph_wind(df_Wind,'2025-03-01','2025-03-31')
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+#| code-fold: true
+
+df_PM=sq.get_PostMortem(5
+                        ,'2025-03-01'
+                        ,'2025-03-31'
+                        ,['ERCOT_1MA_Default','ERCOT_1MA_AvgSP','ERCOT_1MA_AvgSP_1month','ERCOT_1MA_NerdDog']
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+```
+
+
+## 🕵️ Analyses des contraintes
+```{python}
+#| code-fold: true
+
+# paramètres généraux
+pool_id=5
+ftrstartdate='2025-03-01'
+ftrenddate='2025-03-31'
+histostartdate='2025-03-01'
+histoenddate='2025-03-31'
+scenario_flows=['ERCOT_1MA_Default','ERCOT_1DA_Default','ERCOT_1MA_DA_LIM','ERCOT_1MA_Outages']
+scenario_first_priority='ERCOT_1DA_Default'
+scenario_sf=['ERCOT_1MA_Default','ERCOT_1DA_Default']
+scenario_histo_sp=['ERCOT_1MA_Default',
+                    'ERCOT_1DA_Default',
+                    'ERCOT_1MA_DA_LIM',
+                    'ERCOT_1MA_LoadMax',
+                    'ERCOT_1MA_NerdDog',
+                    'ERCOT_1MA_NerdDogPerCluster_V1'
+                    ]
+```
+<details>
+  <summary>367097	HARGRO_TWINBU1_1:DBAKCED5</summary>
+
+- Contrainte impactée par la load et la load industriel. 
+- Contrainte avec la même ligne principale qui avait bind fortement l’hiver dernier. 
+- Plutôt bien modelisée dans Dayzer.
+
+**Analyse prebid trader:**
+
+*Contrainte très sensible à la charge industrielle à l'Ouest de San Antonio. Le vent et le solaire réduisent les flows sur la ligne, alors il est préférable de la viser durant la nuit (OffPeak). Une combinaison d'outages l'impacte actuellement, dont le 6045_A. À partir du 30 Janvier, c'est le 6046_A qui prendra le relai et est supposé durer jusqu'au 30 Janvier 2026. Panorama indique que l'outage GIRVIN_NEVIL1_LN aura un impact significatif aussi. La limite du modèle CRR est la même que dans Panorama alors que le scénario DA_LIM semble considérer une limite à 143MW. Cela ne change pas la conclusion. Aucun shadowCost sur la contrainte pour le moment alors qu'elle est à son deuxième mois de suite de bind, je m'attends à ce que le shadow cost soit fort pour le mois de Février, elle est donc à cibler de manière prudente. »
+Position:Long, peakid=4*
+
+```{python}
+#| echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      50009231,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+</details> 
+
+<details>
+  <summary>368817	BIGLAK_PHBL_T1_1:SOZNFRI9</summary>
+
+- Contrainte dépendante des PAR, Le schedule est géré par le transmission operator. Difficile de savoir si elle est à risque à l’avance. CES a la même conclusion
+
+```{python}
+#| echo: false
+cu.get_all_cstr_data(pool_id,
+                      50010463,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+
+</details> 
+
+<details>
+  <summary>376896 LAKENA_SAMATH1_1:DBAKCED5</summary>
+
+- Lors de la mise en place du nouveau modèle en décembre, Dayzer n’avait pas update le modèle avec les derniers changements topologiques. J’ai appliqué les changements durant la période de bid, fait que seul la simulation ERCOT_1MA_Outages avait la contrainte de modélisé.
+
+
+**Analyse prebid Analyste:**
+
+*Contrainte qui bind fortement récemment. Impacté par les load industriels. Le solaire fait baisser les flows sur la contrainte. Plus à risque de bind en OffPeak. A priori pas de projets d'augmentations de lignes, elle devrait donc continuer de binder. La contrainte est déjà bien pricé. Je conseillerai de rester neutre dessus.*
+
+```{python}
+#| echo: false
+cu.get_all_cstr_data(pool_id,
+                      50026049,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+
+</details> 
+
+<details>
+  <summary>376189 1680__A:DBERNAR8</summary>
+
+- Premier bind de la contrainte. Capté dans aucun de nos scénarios. Outage 221T355_1 et 353T353_1 qui rajoute de la pression sur la contrainte. Bien qu’en daily on voit les flows se rapprocher de la limite, elle reste quand même mal modélisée. L’impact de ces outages est peu visible sur la contrainte. Voir avec CES pourquoi.
+
+
+```{python}
+#| echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      50016307,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+
+</details> 
+
+<details>
+  <summary>25102123 6520__E:MMOSME35</summary>
+
+- Contrainte dont la ligne principale bind beaucoup depuis Aout 2024. Nouvelle contingence qui semble être monitorée par le marché à partir du 30 décembre. Contrainte dépendante de la load industrielle. Dans Panorama la contrainte semble binder à cause de l’outage 36430_A additionné à d’autres outages.
+
+
+**Analyse prebid Analyste:**
+
+*Contrainte dont la ligne principale a beaucoup bindé depuis Aout. Cette contrainte bind depuis fin décembre. Elle est à risque en off peak du fait que le solaire réduise les flows sur la contrainte. Elle est affectée par l'outage 34630_A prévu du 27 déembre au 1er décembre 2025. Pas de projet d'augmentation de la ligne en cours, elle devrait donc continuer de binder. Le shadowcost est déjà pricé donc ne pas être trop agressif*
+
+
+```{python}
+#| echo: false
+cu.get_all_cstr_data(pool_id,
+                      50018618,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+
+</details> 
+
+<details>
+  <summary>378294 ABNTHW_SERDEV1_1:XABM58</summary>
+
+- Limite de la ligne qui était de 345MW avant de rouler les simulations, puis qui est passé à 173MW à partir du 30 janvier. Avec cette nouvelle limite la contrainte a bindé fortement en 2 jours durant la vague de froid. La limite semble avoir été réajusté à 202 MW. Pour éviter ce fort bind de la contrainte.
+
+![Alt text](images/abnth.png)
+
+- Demander à CES si ils ont une idée de pourquoi certaines limites sont ajustées à  la baisse dans ERCOT.
+
+- Contrainte ajouté après bid par nos scripts automatiques.
+</details> 
+
+<details>
+  <summary>372157 STCO_STER1_1:DBAKCED5</summary>
+
+- Capté par quelques scénarios en monthly, dépendante du vent. 
+
+
+```{python}
+#| echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      50012888,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+
+</details> 
+
+<details>
+  <summary>370549 HAINE__LA_PAL1_1:MHARNED5</summary>
+
+- Dépendante du vent. 
+
+**Analyse prebid Analyste KA:**
+
+*Même liste des outages que la contrainte #22.
+Contrainte de vent avec une limite de une limite de 200 MW.
+Les outages 1) et 2) mettent une bonne pression (jusqu'à 65 MW), l'outage 3) soulage d'environ 15 MW, et le 4e outage soulage un tout petit peu (<5 MW). Donc globalement on a une bonne pression et la contrainte devrait continuer à binder*
+
+```{python}
+#| echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      50011660,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+
+</details> 
+
+<details>
+  <summary>378325 6345__I:MWLFME25</summary>
+
+
+- A bind fortement durant la vague de froid. Contrainte présente lors de la mise en place d'un nouveau modèle, donc après bid
+
+
+```{python}
+#| echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      50027648,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+
+</details> 
+
+<details>
+  <summary>372792 STEWAR_VERTRE1_1:SMVRLA_8</summary>
+
+
+- Capté par LoadMax. 
+- Contrainte dépendante de la load south et des unités Vancourt Solar et Rayos Del Solar. 
+- Contrainte qui bind énormément en RT quand la load South est élevée en hiver, c’était le cas les 3 dernières années. A surveiller pour 2026. 
+
+
+```{python}
+#| echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      50013410,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+
+</details> 

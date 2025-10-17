@@ -1,0 +1,439 @@
+<!-- quarto preview PostMortem.qmd pour la preview du document -->
+<!-- quarto render PostMortem.qmd  pour créer le html-->
+<!-- Dans les commentaires, enlever les $ -->
+---
+title: "Postmortem NYPP Avril 2025"
+author: "Zineddine Aliche"
+date: June 17, 2025
+toc: true
+jupyter: python3
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  cache: false
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+- MAJ de modèle automatique à partir du rawfile le plus récent (En cours)
+    - Mettre à jour le modèle de dayzer avec le CRR le plus récent, ajustement des
+    requête par rapport à des bugs.
+- Projet de validation (En cours)
+    - Jared a fini de son bord, maintenant l'objectif est de créer des requêtes de validations
+- NerdMonkey (Outil d'analyse de contrainte) (En pause)
+- Refonte des scripts d’ajout de contraintes automatiques pour ERCOT (A faire)
+- Faire une étude de contingence (A faire)
+- NerdDogPerCluster (ML pour sortir les contraintes fortes) (Pause)
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+
+conn=init_connection()
+```
+
+## 📈 Évolution de la load et des vents
+
+```{python}
+start_date = '2025-05-01'
+end_date = '2025-05-31'
+market = "NYPP"
+pool_id = 1
+```
+
+```{python}
+#| code-fold: true
+#| eval: true
+df_Load=sq.get_Load([f'{market}_1DA_Default'
+                  ,f'{market}_1MA_Default'
+                  ,f'{market}_1MA_LoadMax'
+                  ,f'{market}_1MA_LoadMin'
+                  ]
+                  ,'2020-01-01'
+                  , end_date
+                  ,conn
+                  )
+df_Wind=sq.get_Wind([f'{market}_1DA_Default'
+                  ,f'{market}_1MA_Default'
+                  ,f'{market}_1MA_WindMax'
+                  ,f'{market}_1MA_WindMin']
+                  ,'2020-01-01'
+                  , end_date
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL',start_date,end_date)
+gu.create_graph_wind(df_Wind,start_date,end_date)
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+df_all = sq.get_PostMortem(pool_id, start_date, end_date, [], conn)
+print(df_all.columns)
+```
+
+```{python}
+#| code-fold: true
+#| eval: true
+#| cache: false
+df_PM=sq.get_PostMortem(pool_id
+                        , start_date
+                        , end_date
+                        ,[f'{market}_1MA_Default',f'{market}_1MA_AvgSP',f'{market}_1MA_AvgSP_1month',f'{market}_1MA_AvgHistSP',f'{market}_1MA_DL_AvgSP']
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+```
+
+
+## 🕵️ Analyses des contraintes
+<!-- ```{python}
+#| code-fold: true
+#| cache: true
+# paramètres généraux
+pool_id=5
+ftrstartdate='2025-07-01'
+ftrenddate='2025-07-31'
+histostartdate='2025-04-01'
+histoenddate='2025-07-31'
+scenario_flows=['ERCOT_1MA_Default','ERCOT_1DA_Default','ERCOT_1MA_DA_LIM','ERCOT_1MA_Outages']
+scenario_first_priority='ERCOT_1DA_Default'
+scenario_sf=['ERCOT_1MA_Default','ERCOT_1DA_Default','ERCOT_1MA_Outages']
+scenario_histo_sp=['ERCOT_1MA_Default',
+                    'ERCOT_1DA_Default',
+                    'ERCOT_1MA_DA_LIM',
+                    'ERCOT_1MA_LoadMax',
+                    'ERCOT_1MA_NerdDog',
+                    'ERCOT_1MA_NerdDogPerCluster_V1'
+                    ]
+``` -->
+```{python}
+#| code-fold: true
+#| cache: true
+# paramètres généraux
+pool_id=1
+ftrstartdate='2025-05-01'
+ftrenddate='2025-05-31'
+histostartdate='2025-05-01'
+histoenddate='2025-05-31'
+scenario_flows=['NYPP_1MA_Default','NYPP_1DA_Default','NYPP_1MA_AvgHistSP', 'NYPP_1MA_DL_AvgtSP' ]
+scenario_first_priority='NYPP_1DA_Default'
+scenario_sf=['NYPP_1MA_Default','NYPP_1DA_Default']
+scenario_histo_sp=['NYPP_1MA_Default','NYPP_1DA_Default',
+                    'NYPP_1MA_AvgHistSP',
+                    'NYPP_1MA_DL_AvgtSP'
+                    ]
+```
+<!-- ```{python}
+#| code-fold: true
+#| cache: true
+# paramètres généraux
+ftrstartdate='2025-05-01'
+ftrenddate='2025-05-31'
+histostartdate='2025-05-01'
+histoenddate='2025-05-31'
+scenario_flows=['NYPP_1MA_Default','NYPP_1DA_Default','NYPP_1MA_AvgHistSP'] #,'NYPP_1MA_DL_AvgtSP'
+scenario_first_priority='NYPP_1DA_Default'
+scenario_sf=['NYPP_1MA_Default','NYPP_1DA_Default']
+scenario_histo_sp=['NYPP_1MA_Default','NYPP_1DA_Default']#,
+                    # 'NYPP_1MA_AvgHistSP',
+                    # 'NYPP_1MA_DL_AvgtSP'
+                    # ]
+
+
+``` -->
+
+<details>
+  <summary>367097	HARGRO_TWINBU1_1:DBAKCED5</summary>
+
+**Analyse prebid François:**
+
+Contrainte dur a lire pcq personne ne s'entends sur les limites. 
+
+Limit CRR = 430MW depuis Oct 2024 (pas de congestion prévue par Dayzer pour ce scenario alors que la congestion est monstre dans le marché depuis 2025.)
+Limit DAM = 150MW (Peu de congestion prévue par Dayer pour ce scenario, alors que la congestion est monstre dans le marchée depuis 2025).
+LImit Default = 130MW : La congestion est super bien modéliser par Dayzer avec des amplitude similaire au marchée en 2025.
+
+La limite CRR prévue pour Juillet est encore 430MW... mais... je pense que ca ne se matérialisera pas et que la contrainte demeure très susceptible de bindé. 
+
+Je me positionnerais long, bien que les prompts sont très eleve. 
+Ca fais 3 mois que les prompts sont plus élévé que la congestion... donc peut être les prompts diminueront suffisament pour que ca devienne profitable, d'autant plus que la charge en Juillet pourrait augmenter la congestion.
+
+
+**Analyse postbid:**
+
+Cumule de plusieurs outages qui l'a fait bind. Elle est dépendante de la load et de la load industriel. Les flows sont très proches de la limite
+dans dayzer, difficile à estimé l'amplitude de bind, la contrainte reste à risque tant que la limite n'aura pas été augmentée.
+ 
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      # 10001983,
+                      10001600,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>378416	FREER_LOBO1_1:MFOAVLO5</summary>
+
+**Analyse postbid:**
+Contrainte dépendante du vent provenant de SOUTH ERCOT.
+Le vent a été fort entre le 9 et le 23 juillet ce qui à causer un fort bind de la contrainte par rapport à Juin.
+```{python}
+#| echo: false
+#| eval: false
+cu.get_all_cstr_data(pool_id,
+                      50027677,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>25102118	BLESSING_69A1:DSTPREF5</summary>
+
+**Analyse postbid:**
+Limite qui est passé de 87MW à 47MW le 27 juillet causant le fort bind du transformateur Durant cette journée.
+La limite est passée à 67MW pour les journées d'après ce qui rend la contrainte toujours à risque de bind.
+Il n'y avait pas de moyen de capter ça avant bid.
+```{python}
+#| echo: false
+#| eval: false
+cu.get_all_cstr_data(pool_id,
+                      50012282,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>379024	6345__L:DMOSME25</summary>
+
+**Analyse postbid:**
+
+Contrainte qui bind à cause de l'outage 6520__E plannifié du 20 juillet au 3 Aout. L'outage a été planifié au moment où il a commencé à bind, aucun moyen de l'avoir eu en prébid. Dans dayzer la ligne principale de la contrainte
+était en outage du fait d'un mauvais mapping de leur bord. Ils avaient mappé l'outage WLFSW_SERDEV11 à 6345__L
+Le problème a été reglé le 29 juillet. Depuis les flows suivent bien la dynamique de bind dans dayzer.
+
+
+```{python}
+#| echo: false
+#| eval: false
+cu.get_all_cstr_data(pool_id,
+                      50028561,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>360079	BONDRO_SONR1_1:DBIGKEN5</summary>
+
+**Analyse postbid:**
+
+Contrainte qui lorsque l'outage "9005_CAMPWOOD_CB" n'est plus, les flows sur la contrainte jump et la font bind fortement. Très difficile
+d'estimer quand l'outage n'est plus étant donné qu'il réaparait. Sans être planifié.
+```{python}
+#| echo: false
+#| eval: false
+cu.get_all_cstr_data(pool_id,
+                      50005046,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>360488	CNT_MCCR_1:SSHIMCC8</summary>
+
+**Analyse prebid François:**
+C'est un contrainte principalement drivé par la load. les flow sont quand même toujours autouir de 80% et plus et a l'été c'est bcp plus proche de 90% ++. 
+
+
+En aout 2024, la contrainte avait été forte quand même, alors que les limites etait a 232MW aulieu de 245MW.
+Là, les limites CRR propose encore 232MW , alors si la load s'annonce forte, je pense que la Ctr pourrait bindé (probablement moins fort que ce qui est prévue par Dayzer parcontre.)
+
+Cela dit, le Path est pas cher et avait été profitable lorsque la contrainte bindant (Aout2024 et Fevrier 2025).
+
+**Analyse postbid:**
+Contrainte drivé par la load et la génération NR. Plus à risque l'été
+```{python}
+#| echo: false
+#| eval: false
+cu.get_all_cstr_data(pool_id,
+                      50005286,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>378887 DEL_MA_LAREDO1_1:MFOAVLO5</summary>
+
+**Analyse postbid:**
+
+Contrainte qui bind à cause de l'outage LASCRU_MILO11 prévu avant bid. Dayzer la voyait binder mais le best path n'est pas très interessant.
+```{python}
+#| echo: false
+#| eval: false
+cu.get_all_cstr_data(pool_id,
+                      50027758,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>4500290 HCKSW_MR1H:DEXCHCK5</summary>
+
+**Analyse postbid:**
+Bind à cause de l'outage MR2L_HCKSW prévu après bid. Prévu du 9 au 25 juillet.
+
+```{python}
+#| echo: false
+#| eval: false
+cu.get_all_cstr_data(pool_id,
+                      50028761,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>370549 HAINE__LA_PAL1_1:MHARNED5</summary>
+
+**Analyse prebid Florian:**
+Congestion forte dans le sud d'ERCOT, Bind actuellement à cause de l'outage burns riohondo qui devrait finir le 19Juin (Outage qui a été décalé, avant devait terminé le 15 Mai), beaucoup de travaux dans la zone  Lower Rio Grande Valley  (LRGV) pour réduire la congestion, Lorsque Burns Rio hondo aura terminé, sa ligne devrait être augmenté. HAINE_LA PALMA devrait être moins à risque de bind sans l'outage HAINE_LA_PALMA. 
+
+A short mais avec des prix très conservateurs au cas où l'outage est décalé encore une fois.
+
+**Analyse prebid Florian:**
+La contrainte a effectivement moins bindé par rapport aux mois d'avant. Néanmoins la limite de burns riohondo n'a toujours pas été augmenté. La contrainte restait profitable en short.
+```{python}
+#| echo: false
+#| eval: false
+cu.get_all_cstr_data(pool_id,
+                      50011660,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>

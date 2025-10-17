@@ -1,0 +1,21 @@
+---
+title: "Postmortem ERCOT Février 2025"
+author: "Florian ETIENNE"
+date: today
+toc: true
+jupyter: postmortem
+format:
+  html:
+    code-tools: true
+    grid:
+      body-width: 1400px
+    include-before-body: |
+      <div style="text-align: center;">
+        <img src="images/abnth.png" alt="Company Logo" style="width: 150px; margin-bottom: 20px;">
+      </div>
+execute:
+  echo: true
+  code-tools: true
+---
+
+# 📌 Example of Collapsible Sections

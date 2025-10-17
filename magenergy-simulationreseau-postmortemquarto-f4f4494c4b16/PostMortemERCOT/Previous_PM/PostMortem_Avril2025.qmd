@@ -1,0 +1,565 @@
+<!-- quarto preview PostMortem.qmd pour la preview du document -->
+<!-- quarto render PostMortem.qmd  pour créer le html-->
+<!-- Dans les commentaires, enlever les $ -->
+---
+title: "Postmortem ERCOT Avril 2025"
+author: "Florian ETIENNE"
+date: today
+toc: true
+jupyter: postmortem
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  cache: false
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+- NerdMonkey (En cours)
+    - Transfert vers bitbucket pour un meilleur suivi des maj et favoriser la collaboration
+- Projet de validation (En cours)
+    - Mise en place du JIRA et de tables dont IT a besoin.
+- MAJ de modèle automatique à partir du rawfile le plus récent (En pause)
+    - Mettre à jour le modèle de dayzer avec le CRR le plus récent, puis mettre à jour avec le DA le plus récent.
+- Refonte des scripts d’ajout de contraintes automatiques pour ERCOT (A faire)
+- Faire une étude de contingence (A faire)
+- NerdDogPerCluster (A faire)
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+
+conn=init_connection()
+```
+
+## 📈 Evolution de la load et du vents
+
+
+```{python}
+#| code-fold: true
+#| eval: true
+df_Load=sq.get_Load(['ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_Default'
+                  ,'ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_LoadMax'
+                  ,'ERCOT_1MA_LoadNormal_SAI'
+                  ,'ERCOT_1MA_LoadMax_SAI'
+                  ,'ERCOT_1MA_LoadMin_SAI']
+                  ,'2020-01-01'
+                  ,'2025-04-30'
+                  ,conn
+                  )
+df_Wind=sq.get_Wind(['ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_Default'
+                  ,'ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_WindMaxExt'
+                  ,'ERCOT_1MA_WindMinExt']
+                  ,'2020-01-01'
+                  ,'2025-04-30'
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL','2025-04-01','2025-04-30')
+gu.create_graph_wind(df_Wind,'2025-04-01','2025-04-30')
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+#| code-fold: true
+#| eval: true
+#| cache: true
+df_PM=sq.get_PostMortem(5
+                        ,'2025-04-01'
+                        ,'2025-04-30'
+                        ,['ERCOT_1MA_Default','ERCOT_1MA_AvgSP','ERCOT_1MA_AvgSP_1month','ERCOT_1MA_NerdDog']
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+```
+
+
+## 🕵️ Analyses des contraintes
+```{python}
+#| code-fold: true
+#| cache: true
+# paramètres généraux
+pool_id=5
+ftrstartdate='2025-04-01'
+ftrenddate='2025-04-30'
+histostartdate='2025-03-01'
+histoenddate='2025-04-30'
+scenario_flows=['ERCOT_1MA_Default','ERCOT_1DA_Default','ERCOT_1MA_DA_LIM','ERCOT_1MA_Outages']
+scenario_first_priority='ERCOT_1DA_Default'
+scenario_sf=['ERCOT_1MA_Default','ERCOT_1DA_Default']
+scenario_histo_sp=['ERCOT_1MA_Default',
+                    'ERCOT_1DA_Default',
+                    'ERCOT_1MA_DA_LIM',
+                    'ERCOT_1MA_LoadMax',
+                    'ERCOT_1MA_NerdDog',
+                    'ERCOT_1MA_NerdDogPerCluster_V1'
+                    ]
+```
+
+<details>
+  <summary>4500014	BRUNI_69_1:MFOAVLO5</summary>
+**Analyse prebid François:**
+
+*"Nouvelle contrainte ajouté Fin Fevrier 2025. Dayzer la fait Bindé a cause du vent. Elle a bindé un peu en Fev (1300) et Mars (1900).
+
+Je crois que si le vent est fort et la charge plutot sombre, c'est très plausible.
+
+Path possible : 
+EXGNWTL_1 => ERSL_RN
+Cela dit, les prompts sont pas gratuit. Il faudrait vraiment que ca soit Avril venteux."*
+
+La contrainte a bindé fortement du fait de l'outage MINES__NLARSW11 apparu le 10 mars. Il était présent dans notre simulation
+ERCOT_1MA_Outages.
+Se créer une requête qui montre les plus gros différences de SP ou de flows serait intéressante.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50027658,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>377816	2115__B:DJACALV8</summary>
+
+Contrainte dépendante du vent et de l'outage SPR_VALY1.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50017837,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>376896	LAKENA_SAMATH1_1:DBAKCED5</summary>
+
+**Analyse prebid Florian:**
+
+*Contrainte qui bind fortement récemment. Impacté par les load industriels et la load. Le solaire fait baisser les flows sur la contrainte. Plus à risque de bind en OffPeak. A priori pas de projets d'augmentations de lignes, elle devrait donc continuer de binder mais moins qu'en mars ou février du fait d'une load plus faible en Avril. Essayer de se positionner neutre voir légèrement short*
+
+La load était plus élevé que ce qu'il y avait de prévu dans notre scénario 1MA_default, la contrainte a continué à bind fortement.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50026049,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>377180	15060__A:SW_LVLT5</summary>
+
+**Analyse prebid Hamza:**
+
+*"Contrainte qui semble binder majoritairement à cause des bids des participants. Le vent augmente aussi les flows sur la ligne alors qu'on se dirige vers le mois le plus venteux de l'année. Elle a atteint 25K en Février alors qu'elle est impactée par l'outage 6045__A/6046__A qui se terminent l'année prochaine. Un outage semble réduire drastiquement les flows sur la ligne de 440 MW à partir du 28 Avril. Dayzer la voit binder à travers les différents scénarios"*
+
+Contrainte qui bind à cause de la load, capté par des scénarios Dayzer.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50017261,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>354231 LOYOLA_69_1:SN_SLON5</summary>
+
+**Analyse prebid Hamza:**
+
+*Contrainte de vent. La grande majorité des flows sur la ligne proviennent de la production éolienne sur une limite de 40MW. Les moment de bind historiques ne semblent pas concider avec ceux vus par Dayzer. Historiquement, elle ne bindait pas fortement durant les mois d'Avril même si ce dernier est le mois ou on observe le plus de vent sur toute l'année. Difficile de savoir si un sens se dégage, alors il faudrait rester conservateur sur les 2 sens ou éviter toute exposition.*
+
+
+Le vent amène la contriante à binder.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50002179,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>370549	HAINE__LA_PAL1_1:MHARNED5</summary>
+
+**Analyse prebid Florian:**
+
+*Contrainte dépendante du vent et de la load, l'outage BURNS_RIOHONDO_1 provoque le bind de la contrainte. L'outage est prévu jusqu'au 15 mai, La contrainte devrait continuer à bind en Avril.*
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50011660,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>364589	587__A:DLWSRNK5</summary>
+
+**Analyse prebid Etienne:**
+
+*L'outage sur 105_B_LN du 7 au 18 avril redirige beaucoup de flows. Panorama voit +25%, Dayzer voit +15 à +20% également. Les flows Dayzer sautent durant la même période et dépassent 100% des limites. 
+
+De tels niveaux de flows Dayzer n'ont pratiquement pas été vus depuis mars 2022, mois qui avait vu beaucoup de congestion (~30k de shadow price). La majorité des scénarios Dayzer voient entre 2k et 5k pour avril.*
+
+Contrainte impacté par l'outage 105_B, l'outage 38020_A et le vent.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50007624,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>25102126	6635__G:SCLCGTN8</summary>
+
+**Analyse prebid Florian S1:**
+
+*Contrainte qui avait bind à 10k en mai 2024 à cause d'un outage, cette contrainte pourrait être amené à bind avec le cumule de 6377_A ,6040_A et 6041_A entre le 25 et 30 avril, peut être que les outages pourront être décalé donc interessant de se positionner en mai. Le best path de cette contrainte à un prompt négatif du fait que les participants essaye de récolter la congestion de la contrainte 6830__B:DGRMGRS8 qui a un impact négatif par rapport à 6635__G. 6830__B:DGRMGRS8 est une contrainte essentiellement dépendante du vent. Si comme l'année dernière 6830 ne bind pas ou peu en Avril 2025. Ca pourrait être interessant de se positionner long sur le path ci joint*
+
+Contrainte qui a bindé avec le cumule de plusieurs outages, 6040_A et 6041_A  ont été l'élément declencheur du bind de la contrainte prévu du 14 au 30 avril.
+ 
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50017792,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary>4500483	1680__B:DROUCHI8</summary>
+
+**Analyse prebid Florian like constraint:**
+*Contrainte dépendante de la load. Une contrainte avec la même ligne principale avait bind fortement en février à cause d'un outage et de la forte load. 
+
+DHUTGIL8 avait bind pour la dernière fois en juillet 2023 avec des SP de moins de 1dollar par heure.  Elle est à risque de bind en avril avec la présence des outages 1661__A et 1715__A entre le 19 et le 30 avril. Les flows passent de 50 MW sans les outages à 233MW avec les outages et touchent la limite.
+
+Avec le résultat de SP de juillet 2023, j'ai peur que si elle bind ce soit à des niveaux faibles. Peut se tenter si ça ne coute pas trop cher*
+
+
+Contriante qui n'était pas dans le modèle, une analyse de contingence nous aurait permis de la capter. Outage 1715__A qui l'a fait bind.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50028010,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>362548	6437__F:DMTSCOS5</summary>
+
+Cumule de plusieurs outages qui l'a fait bind.
+ 
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50006479,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>4500162	690__C:DFMRCYC5</summary>
+
+
+ Contrainte non présente dans le modèle avant bid, premier bind en mars à cause de l'outage 214_A prévu entre le 7 avril et le 2 mai, prévu avant bid. 
+ L'analyse de contingence nous aurait permis de capter la contrainte.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50027685,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>368669	122T122_1:DCAGCO58</summary>
+
+**Analyse prebid Etienne**
+*L'outage sur 656T6561 du 26 avril au 1er mai redirige bcp de flows sur la contrainte. Demeure fortement dépendante de la load dans le sud & Houston.*
+ 
+ 
+A bindé fin avril à cause de cet outage+ le 16 avril à cause de l'outage 662T6621.
+ Contrainte 
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50010349,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>357356	FRI_PEAR_1:SBATPAL8</summary>
+Contrainte qui bind à cause de la génération NR et du vent, Dayzer est assez loin de la limite mais capte plutôt bien la dynamique.
+A voir si on améliore la modélisation avec un modèle plus à jour.
+
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50003633,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+</details>
+
+<details>
+  <summary>4500416	6085__E:DJCKWCS5</summary>
+Nouvelle containte, bind à cause des outages 6040_A et 6041_A. Une étude de contingence nous aurait permis de la capter.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50019830,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+</details>
+
+<details>
+  <summary>362633	255T279_1:DCAGCI58</summary>
+Contrainte qui bind à cause de l'outage 656T6561 prévu entre le 26 avril et le 1er Mai.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50006534,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+</details>
+
+<details>
+  <summary>371310	SCARBI_TITAN_1_1:SSTILOM8</summary>
+Outage LA_PAL_VCAVAZ11 apparu après bid qui fait bind la contrainte.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50012250,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+</details>

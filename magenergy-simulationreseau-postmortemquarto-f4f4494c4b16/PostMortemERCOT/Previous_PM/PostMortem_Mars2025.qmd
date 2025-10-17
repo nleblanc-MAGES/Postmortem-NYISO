@@ -1,0 +1,546 @@
+---
+title: "Postmortem ERCOT Mars 2025"
+author: "Florian ETIENNE"
+date: today
+toc: true
+jupyter: postmortem
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  cache: false
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+- NerdMonkey (En cours)
+    - Transfert vers bitbucket pour un meilleur suivi des maj et favoriser la collaboration
+- Projet de validation (En cours)
+    - Mise en place du JIRA et de tables dont IT a besoin.
+- MAJ de modèle automatique à partir du rawfile le plus récent (En pause)
+    - Mettre à jour le modèle de dayzer avec le CRR le plus récent, puis mettre à jour avec le DA le plus récent.
+- Refonte des scripts d’ajout de contraintes automatiques pour ERCOT (A faire)
+- Faire une étude de contingence (A faire)
+- NerdDogPerCluster (A faire)
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+
+conn=init_connection()
+```
+
+## 📈 Evolution de la load et du vents
+
+
+```{python}
+#| code-fold: true
+#| eval: true
+df_Load=sq.get_Load(['ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_Default'
+                  ,'ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_LoadMax'
+                  ,'ERCOT_1MA_LoadNormal_SAI'
+                  ,'ERCOT_1MA_LoadMax_SAI'
+                  ,'ERCOT_1MA_LoadMin_SAI']
+                  ,'2020-01-01'
+                  ,'2025-03-31'
+                  ,conn
+                  )
+df_Wind=sq.get_Wind(['ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_Default'
+                  ,'ERCOT_1DA_Default'
+                  ,'ERCOT_1MA_WindMaxExt'
+                  ,'ERCOT_1MA_WindMinExt']
+                  ,'2020-01-01'
+                  ,'2025-03-31'
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL','2025-03-01','2025-03-31')
+gu.create_graph_wind(df_Wind,'2025-03-01','2025-03-31')
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+#| code-fold: true
+#| eval: true
+#| cache: true
+df_PM=sq.get_PostMortem(5
+                        ,'2025-03-01'
+                        ,'2025-03-31'
+                        ,['ERCOT_1MA_Default','ERCOT_1MA_AvgSP','ERCOT_1MA_AvgSP_1month','ERCOT_1MA_NerdDog']
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+```
+
+
+## 🕵️ Analyses des contraintes
+```{python}
+#| code-fold: true
+#| cache: true
+# paramètres généraux
+pool_id=5
+ftrstartdate='2025-03-01'
+ftrenddate='2025-03-31'
+histostartdate='2025-03-01'
+histoenddate='2025-03-31'
+scenario_flows=['ERCOT_1MA_Default','ERCOT_1DA_Default','ERCOT_1MA_DA_LIM','ERCOT_1MA_Outages']
+scenario_first_priority='ERCOT_1DA_Default'
+scenario_sf=['ERCOT_1MA_Default','ERCOT_1DA_Default']
+scenario_histo_sp=['ERCOT_1MA_Default',
+                    'ERCOT_1DA_Default',
+                    'ERCOT_1MA_DA_LIM',
+                    'ERCOT_1MA_LoadMax',
+                    'ERCOT_1MA_NerdDog',
+                    'ERCOT_1MA_NerdDogPerCluster_V1'
+                    ]
+```
+<details>
+  <summary>25102120	6520__E:DWLFMET5</summary>
+
+**Analyse prebid Florian:**
+
+*Contrainte imapctée par la load industriel et la load. L'outage 34630_A a un fort impact sur la contrainte. Le solaire réduit les flows sur la ligne.  La contrainte reste risquée pour Mars 2024. Elle semble déjà pas mal bien pricé donc à voir si elle est avantageuse. Je pense que c'est mieux de rester neutre ou long sur cette dernière.*
+
+Limite qui est passée de 230 à 270MW depuis le 10 avril, ce qui pourrait réduire son bind.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50018618,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>376896	LAKENA_SAMATH1_1:DBAKCED5</summary>
+
+**Analyse prebid Florian:**
+
+*Contrainte qui bind fortement récemment. Impacté par les load industriels. Le solaire fait baisser les flows sur la contrainte. Plus à risque de bind en OffPeak. A priori pas de projets d'augmentations de lignes, elle devrait donc continuer de binder. La contrainte est déjà bien pricé. Je conseillerai de rester neutre dessus.*
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50026049,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>370549	HAINE__LA_PAL1_1:MHARNED5</summary>
+
+**Analyse prebid Khalid:**
+
+*"Même liste des outages que la contrainte précédente.
+Contrainte de vent avec une limite de de 200 MW.
+Les outages 1) et 2) mettent une bonne pression (jusqu'à 65 MW), les outages 3) et 5) soulagent un peu, et le 4e outage soulage un tout petit peu (<5 MW). Donc globalement on a une bonne pression et la contrainte devrait continuer à binder, mais les SPs de mars devraient être légèrement inférieurs à ceux de février
+"*
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50011660,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>352616	630__B:DSALKLN5</summary>
+
+**Analyse prebid Florian:**
+
+*"Contrainte dépendante du vent.  Elle bind en février à cause d'un outage, elle est encore à risque de bind en mars avec plusieurs outages qui pourrait l'impacter. Le shadowcost va sans doute s'ajuster avec la congestion récente actuelle donc ne pas être trop aggressif"*
+
+**Analyse prebid François:**
+*"en ai faite la même lecture lors de mon analyse. J'ai spotté la contrainte car elle est très forte debut Fev a cause d'un outage sur 640-C (NLNVL-HKHTS) et le même outage revient du 14 au 24 Mars, combiné en plus avec d'autres outages d'impact similaire. Je la crois plausible.
+"*
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50001292,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>377816	2115__B:DJACALV8</summary>
+
+Contrainte dépendante du vent et de l'outage SPR_VALY1 avant bid, remplacé par l'outage MYRA_VAL1 prévu durant tout le mois de mars.
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50017837,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>367097	HARGRO_TWINBU1_1:DBAKCED5</summary>
+
+**Analyse prebid Florian:**
+
+*"Contrainte impactée par la load industriel et la load. Le solaire fait baisser les flows sur cette contrainte. D'après les flows de dayzer elle reste à risque pour Mars. Rester neutre ou long vu qu'elle a déjà pas mal de ShadowCost."*
+
+**Analyse prebid François:**
+
+*"Gros Jump de SF sur la load. Je sais pas encore pourquoi, mes les SF semble drop pas mal avec 2 zones de Load (SOUTH ERCOT et un autre) passe de -0.003 a -0.0005 quasiement. Donc la load soulage moins cette contrainte qu'avant et on voit un peu de pertubation dans les flows qui semble un peu plus a risque. Dayzer la fait bindé quelques jours lorsque le vent et le solaire est faible. C'est con.. mais on dirait qu'è l'hiver 2024 cetait la meme situation et la contrainte avant été quand meme forte au DAM."*
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50009231,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>354231 LOYOLA_69_1:SN_SLON5</summary>
+
+**Analyse prebid Khalid:**
+
+*"Outages + aspect historique (à part pour 2024).
+Outages:
+1) BONILLA-MANTLE 345KV BONILL_MANTLE11 (déjà actif depuis le 5 juillet 2024 et devrait durer jusqu'à juin 2025)
+4) NEDIN-REFORZAR 345KV NEDIN_REFORZ11 (déjà actif depuis avril 2024 et devrait continuer jusqu'au 13 mars 2025)
+Contrainte de vent avec une petite limite (42 MW). Elle est impactée par les outages déjà actifs. Elle a un aspect historique intéressant (sauf pour 2024). Les outages 1) et 4) mettent jusqu'à 15 MW de pression. Elle devrait continuer à binder en février, mais avec des SPs un poins moins que ceux de février
+
+Remarque: Regarder cette contrainte si jamais il y a un outage futur pour la ligne KLEBERG-LOYOLA 138KV KLEBER_LOYOLA11 (bien sûr il y a d'autres outages qui peuvent mettre plus de pression ou la soulager), mais quand cette ligne est en outage cette contrainte risque d'être forte"*
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50002179,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>377180	15060__A:SW_LVLT5</summary>
+
+**Analyse prebid Florian:**
+
+*"Contrainte impactée par la load industriel et la load. Le solaire fait baisser les flows sur cette contrainte. D'après les flows de dayzer elle reste à risque pour Mars. Rester neutre ou long vu qu'elle a déjà pas mal de ShadowCost."*
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50017261,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>362548	6437__F:DMTSCOS5</summary>
+
+Load et quelques outages qui impactent la contrainte, Pas de flows sur la ligne quand les equiments DSC 3456, 3454  du bus KNAPP
+sont en outages.
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50006479,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>4500040 LARDVN_LASCRU1_1:MFOAVLO5</summary>
+Contrainte dépendante du vent.
+Je vois qu'il y a un projet d'upgrade sur le chemin LASCRUCE-MILO qui devrait finir au printemps 2025, d'après l'excel des projets de construction d'ERCOT. 
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50027666,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>25102121  415T415_1:STURLYT8</summary>
+Bind à cause de la load et d'outages. Contrainte non présente avant bid. Les outages étaient prévu avant bid.
+Une étude de contingence nous aurait permis de la capter.
+
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50027743,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary>357356	FRI_PEAR_1:SBATPAL8</summary>
+Contrainte qui bind à cause de la génération NR et du vent, Dayzer est assez loin de la limite mais capte plutôt bien la dynamique.
+A voir si on améliore la modélisation avec un modèle plus à jour.
+
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50003633,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+</details>
+
+<details>
+  <summary>374049	6005__A:DMBDRKC5</summary>
+
+**Analyse prebid Florian:**
+
+*"Contrainte dépendante de la load, le solaire vient réduire les flows sur la contrainte. L'outage 6042__A impact la contrainte  et est prévu du 10 mars au 26 avril 2025. 
+
+La dernière fois que l'outage avait eu lieu c'était en octobre 2022, la contrainte avait bindé. L'outage a le status Approved. La ligne de la contrainte pourra être isolé entre le 24 et le 28 mars, réduisant le nombre d'heures où la contrainte devrait binder.
+
+Le DA_LIM voit 12k de congestion au total en considérant toutes les contingences. La congestion serait plus ofrte sur le peakid 4 et 3, mais on pourrait en avoir sur le PeakId 2.
+
+Le bestPath donné est bien exposé à la contrainte et le prompt est vraiment faible du fait qu'il n'y a pas de congestion. C'est vraiment une bonne opportunité cette contrainte"*
+
+Contrainte qui a rapporté **56k$, 10 fois sa mise.**
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50014421,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+</details>
+
+
+<details>
+  <summary>353765 BI_SMR98_A:DWAP_JN5</summary>
+
+**Analyse prebid Florian:**
+
+*"Contrainte dépendante du solaire et du NR. L'outage BI_WAP50A a un fort impact sur la contrainte du 11 au 31 mars et peut l'ammener à binder. Historiquement quand l'outage est présent, la contrainte bind.
+
+Dans les fichiers du marché la limite de la ligne est passée de 1634 à 1314 MW le 17 décembre. DA_LIM l'a voit bind à 1128$ pour Mars.
+
+Avec le changement de limite et l'outage ça peut être une bonne opportunité, surtout si tu trouves un path exposé à cette contrainte."*
+
+**Analyse prebid François:**
+*"J'ai la même lecture ! En Octobre 2024 l'outage en question a fait bindé la contrainte au DAM (rien d'explosif mais quand même). La, l'outage est prévue du 11 au 31 Mars."*
+
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50001909,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+</details>
+
+<details>
+  <summary>373943	6005__A:DMBDRKC5</summary>
+
+**Analyse prebid Etienne:**
+
+*"Un outage sur la ligne 345kV parallèle GIB_LIME18_1 (GIB_LIME501 dans Dayzer) redirigen jusqu'à +12% de flows sur JEWET - SNG selon Panorama et Dayzer. Le jump de flows à partir du 3 mars est clair dans Dayzer.
+
+Le même outage a d'ailleurs eu lieu en juin 2022, mai 2023 et octobre 2024, trois périodes de congestion sur la contrainte. La load dans les régions Sud/Houston sont aussi des drivers importants pour cette contrainte. 
+
+J'aime beaucoup le path proposé, qui isole assez bien la contrainte et dont le prix est pratiquement nul. Je vais tenter de loader beaucoup de MW sur celui-ci."*
+
+```{python}
+#| echo: false
+#| eval: true
+cu.get_all_cstr_data(pool_id,
+                      50014336,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+```
+</details>
