@@ -1,0 +1,201 @@
+---
+title: "Postmortem NYPP Avril 2025"
+author: "Zineddine Aliche"
+date: today
+toc: true
+jupyter: python3
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+
+- Application des prébis, accessible via l'url : https://bidanalysis.magitdev.com/.
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+
+conn=init_connection()
+```
+
+## 📈 Evolution de la load et du vents
+
+- La load en monthly est généralement bien estimée, un peu surestimé vers la fin du mois.
+- L'estimation du vent est différente entre le daily et monthly.
+
+```{python}
+#| code-fold: true
+
+df_Load=sq.get_Load(['NYPP_1DA_Default', 'NYPP_1MA_Default', 'NYPP_1MA_LoadMin','NYPP_1MA_LoadMax']
+                  ,'2020-01-01'
+                  ,'2025-04-30'
+                  ,conn
+                  )
+df_Wind=sq.get_Wind(['NYPP_1DA_Default','NYPP_1MA_Default','NYPP_1MA_WindMin','NYPP_1MA_WindMax']
+                  ,'2020-01-01'
+                  ,'2025-04-30'
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL','2025-04-01','2025-04-30')
+gu.create_graph_wind(df_Wind,'2025-04-01','2025-04-30')
+```
+
+
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+#| code-fold: true
+
+df_PM=sq.get_PostMortem(1
+                        ,'2025-04-01'
+                        ,'2025-04-30'
+                        ,['NYPP_1MA_Default', 'NYPP_1MA_AvgHistSP', 'NYPP_1MA_DL_AvgSP']
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+```
+
+
+## 🕵️ Analyses des contraintes
+```{python}
+#| code-fold: true
+
+# paramètres généraux
+pool_id=1
+ftrstartdate='2025-04-01'
+ftrenddate='2025-04-30'
+histostartdate='2025-04-01'
+histoenddate='2025-04-30'
+scenario_flows=['NYPP_1MA_Default','NYPP_1DA_Default','NYPP_1MA_AvgHistSP', 'NYPP_1MA_DL_AvgtSP' ]
+scenario_first_priority='NYPP_1DA_Default'
+scenario_sf=['NYPP_1MA_Default','NYPP_1DA_Default']
+scenario_histo_sp=['NYPP_1MA_Default','NYPP_1DA_Default',
+                    'NYPP_1MA_AvgHistSP',
+                    'NYPP_1MA_DL_AvgtSP'
+                    ]
+```
+
+<details>
+  <summary> VERNON__-GREENWD__138_31231:VERNON__-KENTAVE__138_31232-1_(25337)</summary>
+
+**Analyse :**
+
+- Contrainte impactée par la load dans NYC et soulagée par la génération dans NYC (notamment les unités Arthur Kill ST‑2 et Pouch) et les loopflows (SF = ‑1 avec le PAR 126418, qui est une substation FRESH KILLS).
+- Contrainte avec une limite de 259,5 MW ; les outages 67508 (GOWANUSS 345 KV--> GOWANUSS 138 KV) (du 19 février au 30 avril 2025) et 67509 (GOWANUSN 345 KV--> GOWANUSN 138 KV) (en daily du 22 décembre 2024 au 15 avril 2025, en monthly du 22 décembre 2024 au 3 avril 2025) redirigent un maximum de 60 MW sur la ligne.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10000190,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+</details> 
+
+<details>
+  <summary>201162   LAKSUCSS 138 SHORE_RD 138 1: BASE CASE</summary>
+
+
+**Analyse :**
+
+- La MONITORED LINE de la contrainte était en outage du 10 avril au 30 avril (outage manqué en monthly).
+-  La contrainte a une limite de 229 MW et l’outage 3509 (LAKSUCSS 138 KV-->SHORE_RD 138 KV) redirige jusqu’à 74 MW ; cet outage a été manqué en monthly.
+- Impactée par la load et les loopflows dans LI, et soulagée par la génération NR dans LI ainsi que par les I/E avec Neptune LI‑PJM.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001983,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+</details> 
+
+
+<details>
+  <summary>201165       E179THST 138 SHERMCRK 138 1: BASE CASE  </summary>
+
+**Analyse :**
+
+- La contrainte change de signe entre positif et négatif ; le sens des flows est imposé par le schedule des loopflows.
+- Bind généralement dans Dayzer du côté positif ; les outages 67526 (TREMONT 345 KV--> TREMONT 138 KV)(du 15 avril au 22 avril 2025) et 67527 (TREMONT 345 KV--> TREMONT 138 KV) (du 15 avril au 22 avril 2025) redirigent jusqu’à 100 MW sur la ligne.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001986,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+</details> 

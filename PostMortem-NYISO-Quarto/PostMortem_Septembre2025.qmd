@@ -37,9 +37,10 @@ conn=init_connection()
 ```
 
 ## 📈 Evolution de la load et du vents
-
-- La load en monthly est bien estimée pour la première moitié du mois, et largement surestimée pour la deuxième moitié ; le scénario LoadMin était plus adapté pour l'estimation de la load.
-- L’estimation du vent diffère entre le daily et le monthly.
+- La LoadMin est plus adapté au début du mois, le LoadMax l'est plus vers la fin du mois.
+- Le LoadMax diminue au courant du mois.
+- Au début (1-7 septembre) et à la fin du mois (22-30 septembre) la différence entre le daily et le monthly (8-21 septembre) est plus petit qu'au milieu du mois.
+- La génération totale est cyclique.
 
 ```{python}
 #| code-fold: true
@@ -53,6 +54,12 @@ df_Load=sq.get_Load([f'{market}_1DA_Default', f'{market}_1MA_Default', f'{market
                   ,end_date
                   ,conn
                   )
+```
+
+- La génération de vent n'est pas cyclique.
+- Le monthly et le daily pour le vent sont similaieres au scénario WindMin au milieu du mois, mais ils diffèrent pour le reste du mois (11-20 septembre).
+
+```{python}
 df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_1MA_WindMin',f'{market}_1MA_WindMax']
                   ,'2020-01-01'
                   ,end_date
@@ -62,8 +69,6 @@ df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_
 gu.create_graph_load(df_Load,'TOTAL',start_date,end_date)
 gu.create_graph_wind(df_Wind,start_date,end_date)
 ```
-
-
 
 ## 𝄜 Top contraintes du mois
 
@@ -114,6 +119,45 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
                     f'{market}_1MA_DL_AvgtSP'
                     ]
 ```
+
+<details>
+  <summary> GRASRIVR 115 MOSES 115 1:SIN:MOSES-ALCOA_PA_115_MAL6&C6 </summary>
+
+**Infos :**
+- CID_MAG: 10002334
+- CID_CES: 311274
+- MKUNITCID: 25583_1044
+- CES_NAME = 'GRASRIVR 115 MOSES    115 1 SIN:MOSES-ALCOA_PA_115_MAL6&C6_25583'
+- CONTINGENCYNAME: SIN:MOSES-ALCOA_PA_115_MAL6&C6
+
+**Analyse :**
+- L'outage 25150 (SHORE_RD-LAKSUCSS_138_368, entre le 30 avril et le 12 juin 2025, une ligne parallèle à la ligne de la contrainte) a été manqué en Monthly par Dayzer. L'outage n'était pas présent dans l'OPF du marché non plus.
+- Cet outage redirige en moyenne 60 MW sur la ligne de la contrainte.
+- Le meilleur scénario ayant capté l'amplitude est le 1DA_DL_AvgSP, mais avec un signe positif (ce qui est logique car la définition de la ligne est inversée par rapport au marché).
+- Les limites de la contrainte dans Dayzer et dans le marché sont similaires.
+- Selon YesEnergy, cet outage est de retour à partir du 14 juin, ce qui explique pourquoi la contrainte est bindée en RT.
+- Les principaux drivers de cette contrainte sont la load dans LI et les loopflows, et elle est soulagée par la génération NR.
+- La baisse des flows en daily entre le 16 et le 22 mai dans Dayzer est due à un changement dans le cédule des loopflows.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10002334,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
 
 <details>
   <summary>ToBeDeterminted constraint ->  SHORE_RD-LAKSUCSS_138_367:BASE CASE_(25145)</summary>

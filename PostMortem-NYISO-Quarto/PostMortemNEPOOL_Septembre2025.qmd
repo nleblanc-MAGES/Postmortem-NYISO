@@ -1,0 +1,253 @@
+---
+title: "Postmortem NEPOOL Septembre 2025"
+author: "Nicolas Leblanc"
+date: today
+toc: true
+jupyter: python3
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+
+- Application des prébis, accessible via l'url : https://bidanalysis.magitdev.com/.
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+
+conn=init_connection()
+```
+
+## 📈 Evolution de la load et du vents
+- La LoadMin est plus adapté au début du mois, le LoadMax l'est plus vers la fin du mois.
+- Le LoadMax diminue au courant du mois.
+- Au début (1-7 septembre) et à la fin du mois (22-30 septembre) la différence entre le daily et le monthly (8-21 septembre) est plus petit qu'au milieu du mois.
+- La génération totale est cyclique.
+
+```{python}
+#| code-fold: true
+
+market = 'NEPOOL'
+start_date = '2025-09-01'
+end_date = '2025-09-30'
+pool_id = 3
+df_Load=sq.get_Load([f'{market}_1DA_Default', f'{market}_1MA_Default', f'{market}_1MA_LoadMin',f'{market}_1MA_LoadMax']
+                  ,'2020-01-01'
+                  ,end_date
+                  ,conn
+                  )
+```
+
+- La génération de vent n'est pas cyclique.
+- Le monthly et le daily pour le vent sont similaieres au scénario WindMin au milieu du mois, mais ils diffèrent pour le reste du mois (11-20 septembre).
+
+```{python}
+df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_1MA_WindMin',f'{market}_1MA_WindMax']
+                  ,'2020-01-01'
+                  ,end_date
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL',start_date,end_date)
+gu.create_graph_wind(df_Wind,start_date,end_date)
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+#| code-fold: true
+
+df_PM=sq.get_PostMortem(pool_id
+                        ,start_date
+                        ,end_date
+                        ,[f'{market}_1MA_Default', f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgSP']
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+```
+
+
+## 🕵️ Analyses des contraintes
+```{python}
+#| code-fold: true
+
+# paramètres généraux
+ftrstartdate=start_date
+ftrenddate=end_date
+histostartdate=start_date
+histoenddate=end_date
+scenario_flows=[f'{market}_1MA_Default',f'{market}_1DA_Default',f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgtSP' ]
+scenario_first_priority=f'{market}_1DA_Default'
+scenario_sf=[f'{market}_1MA_Default',f'{market}_1DA_Default']
+scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
+                    f'{market}_1MA_AvgHistSP',
+                    f'{market}_1MA_DL_AvgtSP'
+                    ]
+```
+
+<details>
+  <summary> GRASRIVR 115 MOSES 115 1:SIN:MOSES-ALCOA_PA_115_MAL6&C6 </summary>
+
+**Infos :**
+- CID_MAG: 10002334
+- CID_CES: 311274
+- MKUNITCID: 25583_1044
+- CES_NAME = 'GRASRIVR 115 MOSES    115 1 SIN:MOSES-ALCOA_PA_115_MAL6&C6_25583'
+- CONTINGENCYNAME: SIN:MOSES-ALCOA_PA_115_MAL6&C6
+
+**Analyse :**
+- L'outage 25150 (SHORE_RD-LAKSUCSS_138_368, entre le 30 avril et le 12 juin 2025, une ligne parallèle à la ligne de la contrainte) a été manqué en Monthly par Dayzer. L'outage n'était pas présent dans l'OPF du marché non plus.
+- Cet outage redirige en moyenne 60 MW sur la ligne de la contrainte.
+- Le meilleur scénario ayant capté l'amplitude est le 1DA_DL_AvgSP, mais avec un signe positif (ce qui est logique car la définition de la ligne est inversée par rapport au marché).
+- Les limites de la contrainte dans Dayzer et dans le marché sont similaires.
+- Selon YesEnergy, cet outage est de retour à partir du 14 juin, ce qui explique pourquoi la contrainte est bindée en RT.
+- Les principaux drivers de cette contrainte sont la load dans LI et les loopflows, et elle est soulagée par la génération NR.
+- La baisse des flows en daily entre le 16 et le 22 mai dans Dayzer est due à un changement dans le cédule des loopflows.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10002334,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+
+<details>
+  <summary>ToBeDeterminted constraint ->  SHORE_RD-LAKSUCSS_138_367:BASE CASE_(25145)</summary>
+
+**Analyse :**
+- L'outage 25150 (SHORE_RD-LAKSUCSS_138_368, entre le 30 avril et le 12 juin 2025, une ligne parallèle à la ligne de la contrainte) a été manqué en Monthly par Dayzer. L'outage n'était pas présent dans l'OPF du marché non plus.
+- Cet outage redirige en moyenne 60 MW sur la ligne de la contrainte.
+- Le meilleur scénario ayant capté l'amplitude est le 1DA_DL_AvgSP, mais avec un signe positif (ce qui est logique car la définition de la ligne est inversée par rapport au marché).
+- Les limites de la contrainte dans Dayzer et dans le marché sont similaires.
+- Selon YesEnergy, cet outage est de retour à partir du 14 juin, ce qui explique pourquoi la contrainte est bindée en RT.
+- Les principaux drivers de cette contrainte sont la load dans LI et les loopflows, et elle est soulagée par la génération NR.
+- La baisse des flows en daily entre le 16 et le 22 mai dans Dayzer est due à un changement dans le cédule des loopflows.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001983,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+</details> 
+
+<details>
+  <summary>ToBeDeterminted constraint -> DEPOSIT   69 INDIANHD  69 1 TWR:HOLTSVLLE 881& 882& 880_325971</summary>
+
+
+**Analyse :**
+
+- Impactée par la load dans LI, et soulagée par la génération NR et le vent.
+- L'outage 25601 (PORTJEFF 138KV 69 BK 7, entre le 14 mai et le 23 mai), manqué en Monthly, ajoute jusqu'à 10 MW sur une limite de 120 MW.
+- L'outage 25681 (HAUPPAUG-C._ISLIP 138KV 889, 1er et 2 mai) est également manqué en Monthly.
+- Cette contrainte n’a pas été bindée, et la véritable contrainte qui a bindé n’est pas présente dans le modèle (je vais l’ajouter…) — même ligne, mais avec une contingence différente.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001384,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+</details> 
+
+
+<details>
+  <summary> ToBeDeterminted constraint -> ASTANNEX 138 ASTORIAE 138 1 SIN: E13THSTA Q35M&BK10&REA2_325849</summary>
+
+**Analyse :**
+
+- Pas grand-chose à dire, impactée à 100 % par les loopflows selon Dayzer.
+- La ligne parallèle de la contingence est en outage (ASTANNEX-E13THSTA_345_Q35L) (PTID 25134) depuis le 24 avril 2025, ce qui ajoute de la pression. 
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10000963,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+</details> 
