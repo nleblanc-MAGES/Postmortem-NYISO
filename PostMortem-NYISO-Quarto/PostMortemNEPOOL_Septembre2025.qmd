@@ -32,19 +32,18 @@ import plotly.graph_objects as go
 from services.database_connection import init_connection
 from itables import show, JavascriptFunction
 import ipywidgets as widgets
-
+from IPython.display import Image, display
+import pandas as pd
 conn=init_connection()
 ```
 
 ## 📈 Evolution de la load et du vents
 - La LoadMin est plus adapté au début du mois, le LoadMax l'est plus vers la fin du mois.
-- Le LoadMax diminue au courant du mois.
-- Au début (1-7 septembre) et à la fin du mois (22-30 septembre) la différence entre le daily et le monthly (8-21 septembre) est plus petit qu'au milieu du mois.
+- Au début (1-7 septembre) et à la fin du mois (22-30 septembre) la différence entre le daily et le monthly est plus petit qu'au milieu du mois (8-21 septembre).
 - La génération totale est cyclique.
 
 ```{python}
-#| code-fold: true
-
+# | code-fold: true
 market = 'NEPOOL'
 start_date = '2025-09-01'
 end_date = '2025-09-30'
@@ -57,9 +56,10 @@ df_Load=sq.get_Load([f'{market}_1DA_Default', f'{market}_1MA_Default', f'{market
 ```
 
 - La génération de vent n'est pas cyclique.
-- Le monthly et le daily pour le vent sont similaieres au scénario WindMin au milieu du mois, mais ils diffèrent pour le reste du mois (11-20 septembre).
+<!-- - Le monthly et le daily pour le vent sont similaieres au scénario WindMin au milieu du mois, mais ils diffèrent pour le reste du mois (11-20 septembre). -->
 
 ```{python}
+# | code-fold: true
 df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_1MA_WindMin',f'{market}_1MA_WindMax']
                   ,'2020-01-01'
                   ,end_date
@@ -78,7 +78,8 @@ gu.create_graph_wind(df_Wind,start_date,end_date)
 df_PM=sq.get_PostMortem(pool_id
                         ,start_date
                         ,end_date
-                        ,[f'{market}_1MA_Default', f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgSP']
+                        ,[f'{market}_1MA_Default', f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgSP',
+                        f'{market}_1DA_Default', f'{market}_1DA_AvgHistSP', f'{market}_1DA_DL_AvgSP',]
                         ,conn)
 
 df_PM.fillna(0,inplace=True)
@@ -98,12 +99,32 @@ show(df_PM,
     layout={"topEnd": None}, 
     style="font-size: 12px;",
     )
+
+
 ```
 
+### Statistiques scénarios Monthly:
+- 1MA_Default: 5/7
+- 1MA_AvgHistSP: 5/7
+- 1MA_DL_AvgSP: 1/7
+- La combinaison capte: 5/7
+
+### Statistiques scénarios Daily:
+- 1DA_Default: 2/7
+- 1DA_AvgHistSP: 3/7
+- 1DA_DL_AvgSP: 3/7
+- La combinaison capte: 3/7
+
+### Comparaison avec les top contraintes de Yes
+<!-- - La contrainte a bindé le 26 septembre à cause des outages donnés ici: -->
+```{python}
+# | echo: false
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Septembre 2025 NEPOOL\TopContraintesDansYesSept2025.png"))
+```
 
 ## 🕵️ Analyses des contraintes
 ```{python}
-#| code-fold: true
+# | echo: false
 
 # paramètres généraux
 ftrstartdate=start_date
@@ -120,30 +141,107 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 ```
 
 <details>
-  <summary> GRASRIVR 115 MOSES 115 1:SIN:MOSES-ALCOA_PA_115_MAL6&C6 </summary>
+  <summary> SHEF </summary>
 
 **Infos :**
-- CID_MAG: 10002334
-- CID_CES: 311274
-- MKUNITCID: 25583_1044
-- CES_NAME = 'GRASRIVR 115 MOSES    115 1 SIN:MOSES-ALCOA_PA_115_MAL6&C6_25583'
-- CONTINGENCYNAME: SIN:MOSES-ALCOA_PA_115_MAL6&C6
+
+- CID_MAG: 30002894
+- CID_CES: 1082
+<!-- - MKUNITCID: 25583_1044 -->
+- CES_NAME = 'SHEF'
+- CONTINGENCYNAME: INTERFACE
+- Elle a bindé en RT le 26 septembre (-704.59).
+- Elle a bindé au DAM le 3 (-502.52) et 26 septembre (-723.44) en DA.
 
 **Analyse :**
-- L'outage 25150 (SHORE_RD-LAKSUCSS_138_368, entre le 30 avril et le 12 juin 2025, une ligne parallèle à la ligne de la contrainte) a été manqué en Monthly par Dayzer. L'outage n'était pas présent dans l'OPF du marché non plus.
-- Cet outage redirige en moyenne 60 MW sur la ligne de la contrainte.
-- Le meilleur scénario ayant capté l'amplitude est le 1DA_DL_AvgSP, mais avec un signe positif (ce qui est logique car la définition de la ligne est inversée par rapport au marché).
-- Les limites de la contrainte dans Dayzer et dans le marché sont similaires.
-- Selon YesEnergy, cet outage est de retour à partir du 14 juin, ce qui explique pourquoi la contrainte est bindée en RT.
-- Les principaux drivers de cette contrainte sont la load dans LI et les loopflows, et elle est soulagée par la génération NR.
-- La baisse des flows en daily entre le 16 et le 22 mai dans Dayzer est due à un changement dans le cédule des loopflows.
+
+- Il n'est pas clair pourquoi la contrainte binde le 3 septembre. Peut-être la génération du 18008 Sheffield Wind Plant a possiblement contribué à ce que la contrainte binde.
+- Il a ces outages dans le coin le 3 septembre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte.
+- Ces outages semblent absents des monthlys, mais présents dans le 1DA_Default.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "STALBN_T 115 KV LINE K42-1: STALBN_T",
+"Type": "LINE",
+"KV": 115,
+"Start": "09/03/2025 08:21",
+"End": "09/03/2025 17:47",
+"Planned Start": "09/03/2025 09:00",
+"Planned End": "09/03/2025 18:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "STALBN_T 115 KV LINE K42-2: STALBN_T",
+"Type": "LINE",
+"KV": 115,
+"Start": "09/03/2025 08:21",
+"End": "09/03/2025 17:47",
+"Planned Start": "09/03/2025 09:00",
+"Planned End": "09/03/2025 18:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "STALBN_T 115 KV LINE K42SA: STALBN_T",
+"Type": "LINE",
+"KV": 115,
+"Start": "09/03/2025 08:21",
+"End": "09/03/2025 17:47",
+"Planned Start": "09/03/2025 09:00",
+"Planned End": "09/03/2025 18:00",
+},
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Septembre 2025 NEPOOL\SHEF_3Sept.png"))
+```
+
+- Il n'est pas clair pourquoi la contrainte binde le 26 septembre. Peut-être la génération du 18008 Sheffield Wind Plant a possiblement contribué à ce que la contrainte binde.
+- Il a ces outages dans le coin le 26 septembre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte.
+- Ces outages semblent absents des monthlys, mais présents dans les dailys.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "IRASBURG 115 KV LINE K46-2",
+"Type": "LINE",
+"KV": 115,
+"Start": "09/26/2025 08:06",
+"End": "09/26/2025 13:08",
+"Planned Start": "09/026/2025 6:00",
+"Planned End": "09/26/2025 18:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "IRASBURG 46 KV LINE H15",
+"Type": "LINE",
+"KV": 115,
+"Start": "09/26/2025 06:46",
+"End": "09/26/2025 14:53",
+"Planned Start": "09/26/2025 06:00",
+"Planned End": "09/26/2025 18:00",
+},
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Septembre 2025 NEPOOL\SHEF_26Sept.png"))
+```
 
 
 ```{python}
 # | echo: false
 
 cu.get_all_cstr_data(pool_id,
-                      10002334,
+                      30002894,
                       ftrstartdate,
                       ftrenddate,
                       histostartdate,
@@ -156,58 +254,64 @@ cu.get_all_cstr_data(pool_id,
                       )
 
 ```
-
-
-<details>
-  <summary>ToBeDeterminted constraint ->  SHORE_RD-LAKSUCSS_138_367:BASE CASE_(25145)</summary>
-
-**Analyse :**
-- L'outage 25150 (SHORE_RD-LAKSUCSS_138_368, entre le 30 avril et le 12 juin 2025, une ligne parallèle à la ligne de la contrainte) a été manqué en Monthly par Dayzer. L'outage n'était pas présent dans l'OPF du marché non plus.
-- Cet outage redirige en moyenne 60 MW sur la ligne de la contrainte.
-- Le meilleur scénario ayant capté l'amplitude est le 1DA_DL_AvgSP, mais avec un signe positif (ce qui est logique car la définition de la ligne est inversée par rapport au marché).
-- Les limites de la contrainte dans Dayzer et dans le marché sont similaires.
-- Selon YesEnergy, cet outage est de retour à partir du 14 juin, ce qui explique pourquoi la contrainte est bindée en RT.
-- Les principaux drivers de cette contrainte sont la load dans LI et les loopflows, et elle est soulagée par la génération NR.
-- La baisse des flows en daily entre le 16 et le 22 mai dans Dayzer est due à un changement dans le cédule des loopflows.
-
-
-```{python}
-# | echo: false
-
-cu.get_all_cstr_data(pool_id,
-                      10001983,
-                      ftrstartdate,
-                      ftrenddate,
-                      histostartdate,
-                      histoenddate,
-                      scenario_flows,
-                      scenario_first_priority,
-                      scenario_sf,
-                      scenario_histo_sp,
-                      conn
-                      )
-
-```
-
 </details> 
 
 <details>
-  <summary>ToBeDeterminted constraint -> DEPOSIT   69 INDIANHD  69 1 TWR:HOLTSVLLE 881& 882& 880_325971</summary>
+  <summary> KCW </summary>
 
+**Infos :**
+
+- CID_MAG: 30002880
+- CID_CES: 1066
+<!-- - MKUNITCID: 25583_1044 -->
+- CES_NAME = 'KCW'
+- CONTINGENCYNAME: INTERFACE
+- Elle a bindé en RT le 10 (-16.64), 22 (-12.81), et 26 (-282.67) septembre.
+- Elle a bindé au DAM le 19 (-5.06), 25 (-85.95), 26 (-529.32), et 30 (-3.62).
 
 **Analyse :**
 
-- Impactée par la load dans LI, et soulagée par la génération NR et le vent.
-- L'outage 25601 (PORTJEFF 138KV 69 BK 7, entre le 14 mai et le 23 mai), manqué en Monthly, ajoute jusqu'à 10 MW sur une limite de 120 MW.
-- L'outage 25681 (HAUPPAUG-C._ISLIP 138KV 889, 1er et 2 mai) est également manqué en Monthly.
-- Cette contrainte n’a pas été bindée, et la véritable contrainte qui a bindé n’est pas présente dans le modèle (je vais l’ajouter…) — même ligne, mais avec une contingence différente.
+- Il n'est pas clair pourquoi la contrainte binde le 26 septembre. Peut-être la génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde.
+- Il a ces outages dans le coin le 26 septembre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte.
+- Ces outages semblent absents des monthlys, mais présents dans les dailys.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "IRASBURG 115 KV LINE K46-2",
+"Type": "LINE",
+"KV": 115,
+"Start": "09/26/2025 08:06",
+"End": "09/26/2025 13:08",
+"Planned Start": "09/026/2025 6:00",
+"Planned End": "09/26/2025 18:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "IRASBURG 46 KV LINE H15",
+"Type": "LINE",
+"KV": 115,
+"Start": "09/26/2025 06:46",
+"End": "09/26/2025 14:53",
+"Planned Start": "09/26/2025 06:00",
+"Planned End": "09/26/2025 18:00",
+},
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Septembre 2025 NEPOOL\KCW_26Sept.png"))
+```
 
 
 ```{python}
 # | echo: false
 
 cu.get_all_cstr_data(pool_id,
-                      10001384,
+                      30002880,
                       ftrstartdate,
                       ftrenddate,
                       histostartdate,
@@ -220,23 +324,31 @@ cu.get_all_cstr_data(pool_id,
                       )
 
 ```
-
 </details> 
 
 
 <details>
-  <summary> ToBeDeterminted constraint -> ASTANNEX 138 ASTORIAE 138 1 SIN: E13THSTA Q35M&BK10&REA2_325849</summary>
+  <summary> DNEW </summary>
+
+**Infos :**
+
+- CID_MAG: 30003025
+- CID_CES: 1132
+<!-- - MKUNITCID: 25583_1044 -->
+- CES_NAME = 'DNEW'
+- CONTINGENCYNAME: INTERFACE
+- La contrainte a bindé en RT le 20 (-145.6), 21 (-2.7), 22 (-213.2) et 23 (-95.0) septembre.
+- Yes Energy semble avoir un problème de bien décrire la contrainte. Elle ne binde donc pas en DA.
 
 **Analyse :**
 
-- Pas grand-chose à dire, impactée à 100 % par les loopflows selon Dayzer.
-- La ligne parallèle de la contingence est en outage (ASTANNEX-E13THSTA_345_Q35L) (PTID 25134) depuis le 24 avril 2025, ce qui ajoute de la pression. 
+- La contrainte semble impactée par la génération du 15673 Downeast Wind. Ceci peut être clairement vu dans les graphiques de génération du vent.
 
 ```{python}
 # | echo: false
 
 cu.get_all_cstr_data(pool_id,
-                      10000963,
+                      30003025,
                       ftrstartdate,
                       ftrenddate,
                       histostartdate,
@@ -249,5 +361,513 @@ cu.get_all_cstr_data(pool_id,
                       )
 
 ```
-
 </details> 
+
+
+<details>
+  <summary> FORT_HIL_1090_A_LN:ACTUAL </summary>
+
+**Infos :**
+
+- CID_MAG: 30003309
+- CID_CES: 500049
+<!-- - MKUNITCID: 25583_1044 -->
+- CES_NAME = 'FORT_HIL_1090_A_LN:ACTUAL'
+- CONTINGENCYNAME: ZB71
+- La contrainte a un nom un peu différent (368_FORT_HIL_1090_A) et une contingence différente (NULL) en RT. Celle-ci a bindé en RT le 7 (682.55), 8 (2.19), et 9 (127.67) septembre.
+- La contrainte (avec la bonne contingence de ZB71) a bindé le 5 (170.89), 8 (48.74), et 9 (131.50) en DA.
+- Dans Dayzer, on a la contrainte FORT_HILL_1090_A_LN:ACTUAL, MAG_Cid=300002209, CESCid=22101698
+
+**Analyse :**
+
+- Rien ne semble expliquer pourquoi la contrainte binde le 7 septembre.
+- Selon le marché, la contrainte binde à cause d'un outage d'équipement planifié, mais il ne précise pas lequel.
+- Extrait du marché: "On Tuesday, September 9, depressed pricing in the Connecticut (CT) Load Zone was caused by
+a binding constraint on the 1090 (Fort Hill-Montville) line due to a planned equipment outage.
+The equipment was restored on September 11."
+- Source: https://www.iso-ne.com/static-assets/documents/100027/we_2025_09_14_weekly_final.pdf#:~:text=%E2%80%A2%20On%20Tuesday%2C%20September%209%2C,East%20New%20England%20Import
+
+- Je crois que ce sont les outages suivants:
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "WOOD_RV 115 KV LINE 1870: WOOD_RV",
+"Type": "LINE",
+"KV": 115,
+"Start": "09/09/2025 13:36:00",
+"End": "09/09/2025 17:17:19",
+"Planned Start": "09/09/2025 10:01:00",
+"Planned End": "09/10/2025 07:00:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "KENYON 115 KV LINE 1870N: W_KNGSTN",
+"Type": "LINE",
+"KV": 115,
+"Start": "09/09/2025 09:53:00",
+"End": "09/09/2025 13:02:19",
+"Planned Start": "09/09/2025 6:30:00",
+"Planned End": "09/09/2025 07:00:00",
+},
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Septembre 2025 NEPOOL\FortHill_9Sept.png"))
+```
+
+<!-- ```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30003309,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+``` -->
+</details> 
+
+
+<details>
+  <summary> KR-EXP </summary>
+
+**Infos :**
+
+- CID_MAG: 30002862
+- CID_CES: 1047
+<!-- - MKUNITCID: 25583_1044 -->
+- CES_NAME = 'KR-EXP'
+- CONTINGENCYNAME: INTERFACE
+- Elle a bindé en RT le 22 (-11.89), 28 (-85.30), et 30 (-12.26) septembre.
+- Elle a bindé au DAM le 5 (-28.29), 19 (-4.82), 28 (-56.61), et 30 (-95.02) septembre.
+
+**Analyse :**
+
+- La contrainte semble binder à cause de la production hydro (52092 Greatlakes Millinorocket Hydro) et de vent (18006 ROLLINS WIND PLANT, 18000 STETSON WIND FARM, et 18003 STETSON II WIND FARM).
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002862,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+
+<details>
+  <summary> IRMF-E </summary>
+
+**Infos :**
+
+- CID_MAG: 30002873
+- CID_CES: 1059
+<!-- - MKUNITCID: 25583_1044 -->
+- CES_NAME = 'IRMF-E'
+- CONTINGENCYNAME: INTERFACE
+- Elle a bindé en RT le 18 (-142.90), 25 (-3.21), 26 (-30.88), 27 (-212.70), et 28 (-95.63) septembre.
+- Elle a bindé au DAM le 17 (-86.86), 26 (-6.15), et le 29 (-71.77) septembre.
+
+**Analyse :**
+
+- La contrainte semble binder le 17 septembre à cause d'une combinaison de la production non renouvelable (1970 RUMFORD POWER), du vent (20350 Rox Wind, 18028 Saddleback Mountain Wind, 18005 RECORD HILL WIND) et de l'hydro (52108 RUMFORD FALLS).
+- L'outage suivant a peut-être contribué. Il est absent dans les dailys et les monthlys dans Dayzer.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "WOODSTCK 115 KV LINE KIMBL_RD 217 TO WOODSTCK",
+"Type": "LINE",
+"KV": 115,
+"Start": "09/19/2025 06:40",
+"End": "10/24/2025 19:08",
+"Planned Start": "09/19/2025 7:30",
+"Planned End": "10/24/2025 16:00",
+},
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Septembre 2025 NEPOOL\IRMF-E_SeptAuComplet.png"))
+```
+
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002873,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+
+<details>
+  <summary> GRAHAM66BHEALN </summary>
+
+**Infos :**
+
+- CID_MAG: 30000052
+- CID_CES: 610094
+<!-- - MKUNITCID: 25583_1044 -->
+- CES_NAME = 'GRAHAM66BHEALN'
+- CONTINGENCYNAME: 205
+- Elle ne semble pas binder en RT.
+- Elle a bindé au DAM le 5 (-18.49), 6 (-30.60), 25 (-30.37), et 26 (-74.86).
+
+**Analyse :**
+
+- La contrainte est en contact avec le Nouveau-Brunswick. Généralement, le Maine importe de l'électricité du NB, mais dans ce cas s'était l'inverse. Cette importation était à cause de l'outage de maintenance du Point Lepreau Nuclear Generating Station de la centrale nucléair prévu durer pour 140 jours (mi-juillet à décembre): https://www.919thebend.ca/2025/07/13/point-lepreau-begins-140-day-outage-on-monday/#
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30000052,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+
+
+<details>
+  <summary> BELL_RKL14-4ALN </summary>
+
+**Infos :**
+
+- CID_MAG: 30001453
+- CID_CES: 22101698
+<!-- - MKUNITCID: 25583_1044 -->
+- CES_NAME = 'BELL_RKL14-4ALN'
+- CONTINGENCYNAME: M13
+- Elle ne semble pas binder en RT (elle n'existe pas dans Yes pour le RT).
+- Elle a bindé le 7 (-57.36) et 8 (-51.21) septembre.
+
+**Analyse :**
+
+- Elle semble fortement affectée par la production non renouvelable de 2012 TIVERTON POWER.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30001453,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+
+## 𝄜 Retour sur les contraintes du pré-bid
+```{python}
+# | echo: false
+
+data = [
+    {
+        "CID_CES": 501236,
+        "Nom": "TIVERTON_M13-6_A_LN:ACTUAL",
+        "Binde": "Non",
+        "Outage": "Oui, CANONCUS 115 KV LINE L14-7 (2 sep au 25 nov)",
+    },
+    {
+        "CID_CES": 610484,
+        "Nom": "HARTF_AV_F106_A_LN:E105",
+        "Binde": "Non",
+        "Outage": "Oui, FARNPIKE 115 KV LINE S171N-3 (2 sep au 7 oct)",
+    },
+    {
+        "CID_CES": 610483,
+        "Nom": "HARTF_AV_E105_A_LN:F106",
+        "Binde": "Non",
+        "Outage": "Oui, FARNPIKE 115 KV LINE S171N-3 (2 sep au 7 oct)",
+    },
+    {
+        "CID_CES": 611255,
+        "Nom": "BUNKR_HL_1029-2_A_LN:1789",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) BEACN_FL 115 KV LINE 1808-1 (2-6 sept, 15 sept au 18 oct);"
+            " 2) S_NAUGTK 115 KV LINE 1142 (2-13 sept);"
+            " 3) S_NAUGTK 115 KV LINE 1580 (14 sept au 18 oct)"
+        ),
+    },
+    {
+        "CID_CES": 22102263,
+        "Nom": "GLENLK_J_1610-2_A_LN:387",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) ALLINGS 115 KV LINE 8904B: WOODMONT (5 sept au 5 oct);"
+            " 2) ALLINGS 115 KV LINE 8804A: WOODMONT (5-7 et 12-14 sept, 21 sept-1 oct);"
+            " 3) WOODMONT 115 KV LINE 89005B-1: WOODMONT (5-24 sept);"
+            " 4) WOODMONT 115 KV LINE 88005A-1: WOODMONT (5,7,12,14, et 21 sept, des outages de 1-2h);"
+            " 5) WOODMONT 115 KV XFMR AX (5,7,12,14, et 21 sept, des outages de 1-2h);"
+            " 6) WOODMONT 115 KV XFMR BX (5-24 sept)"
+        ),
+    },
+    {
+        "CID_CES": 500310,
+        "Nom": "CHASE_PD_222_A_LN:ACTUAL",
+        "Binde": "Non",
+        "Outage": "",
+    },
+    {
+        "CID_CES": 611309,
+        "Nom": "MASON_68_A_LN:3025",
+        "Binde": "Non",
+        "Outage": "Oui, ME_YK 345 KV LINE 392 (29 sept au 1 oct)",
+    },
+    {
+        "CID_CES": 661404,
+        "Nom": "STARKS_278-1_A_LN:3025",
+        "Binde": "Non",
+        "Outage": "Oui, ME_YK 345 KV LINE 392 (29 sept au 1 oct)",
+    },
+    {
+        "CID_CES": 661388,
+        "Nom": "DIGHTON_V5-1_A_LN:DCT5",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) RAYNHAM 115 KV LINE S8-2: TAUNTON (15-17 sept);"
+            " 2) TAUNTN_T 115 KV LINE S8-1 (15-17 sept);"
+            " 3) TAUNTN_T 115 KV LINE S8-3 (15-17 sept)"
+        ),
+    },
+    {
+        "CID_CES": 1059,
+        "Nom": "Inner Rumford Export (IRMF-E)",
+        "Binde": "Oui! Au DAM, le 17 (86.86), 26 (6.15), 29 (71.77) septembre",
+        "Outage": ("Oui;"
+            " 1) TAMWORTH 115 KV LINE B112-1: TAMWORTH (18-19 sept);"
+            " 2) TAMWORTH 115 KV LINE B112-2: WHITE_LK (17-18 sept)"
+        ),
+    },
+    {
+        "CID_CES": 1069,
+        "Nom": "Rumford IP Generation (RUMFIP)",
+        "Binde": "Oui! Au DAM, le 25 (1.73) septembre",
+        "Outage": ("Oui;"
+            " 1) TAMWORTH 115 KV LINE B112-1: TAMWORTH (18-19 sept);"
+            " 2) TAMWORTH 115 KV LINE B112-2: WHITE_LK (17-18 sept)"
+        ),
+    },
+    {
+        "CID_CES": 22102047,
+        "Nom": "SOTHNGTN1771 A LN:1670",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
+            " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
+            " 3) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+            " 4) SOTHNGTN 115 KV LINE 1670-1: SOTHNGTN (1-20 sept)"
+        ),
+    },
+    {
+        "CID_CES": 611104,
+        "Nom": "SOTHNGTN1771 A LN:ZB16",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
+            " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
+            " 3) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+            " 4) SOTHNGTN 115 KV LINE 1670-1: SOTHNGTN (1-20 sept)"
+        ),
+    },
+    {
+        "CID_CES": 611287,
+        "Nom": "SOTHNGTN1771 A LN:310",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
+            " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
+            " 3) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+            " 4) SOTHNGTN 115 KV LINE 1670-1: SOTHNGTN (1-20 sept)"
+        ),
+    },
+    {
+        "CID_CES": 611326,
+        "Nom": "SOTHNGTN1771 A LN:ZB68",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
+            " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
+            " 3) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+            " 4) SOTHNGTN 115 KV LINE 1670-1: SOTHNGTN (1-20 sept)"
+        ),
+    },
+    {
+        "CID_CES": 611337,
+        "Nom": "SOTHNGTN1771 A LN:ZB69",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
+            " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
+            " 3) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+            " 4) SOTHNGTN 115 KV LINE 1670-1: SOTHNGTN (1-20 sept)"
+        ),
+    },
+    {
+        "CID_CES": 611248,
+        "Nom": "SOTHNGTN1771 A LN:ZB17",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
+            " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
+            " 3) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+            " 4) SOTHNGTN 115 KV LINE 1670-1: SOTHNGTN (1-20 sept)"
+        ),
+    },
+    {
+        "CID_CES": 611284,
+        "Nom": "SOTHNGTN1771 A LN:ZB37",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
+            " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
+            " 3) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+            " 4) SOTHNGTN 115 KV LINE 1670-1: SOTHNGTN (1-20 sept)"
+        ),
+    },
+    {
+        "CID_CES": 611324,
+        "Nom": "SOTHNGTN1771 A LN:3424",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
+            " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
+            " 3) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+            " 4) SOTHNGTN 115 KV LINE 1670-1: SOTHNGTN (1-20 sept);"
+        ),
+    },
+    {
+        "CID_CES": 22102087,
+        "Nom": "BERLIN 1670-2 A LN:1771",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) BERLIN 115 KV LINE 1670-2: RESVRD_J (1-20 sept);"
+            " 2) BERLIN 115 KV LINE 1752: ROCKY_HL (21 sept au 25 oct);"
+            " 3) BERLN_NH 115 KV LINE S136: WHITEFLD (13 sept 4h30-19h);"
+            " 4) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+        ),
+    },
+    {
+        "CID_CES": 611253,
+        "Nom": "BERLIN 1670-2 A LN:ZB17",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) BERLIN 115 KV LINE 1670-2: RESVRD_J (1-20 sept);"
+            " 2) BERLIN 115 KV LINE 1752: ROCKY_HL (21 sept au 25 oct);"
+            " 3) BERLN_NH 115 KV LINE S136: WHITEFLD (13 sept 4h30-19h);"
+            " 4) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+        ),
+    },
+    {
+        "CID_CES": 611105,
+        "Nom": "BERLIN 1670-2 A LN:ZB16",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) BERLIN 115 KV LINE 1670-2: RESVRD_J (1-20 sept);"
+            " 2) BERLIN 115 KV LINE 1752: ROCKY_HL (21 sept au 25 oct);"
+            " 3) BERLN_NH 115 KV LINE S136: WHITEFLD (13 sept 4h30-19h);"
+            " 4) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+        ),
+    },
+    {
+        "CID_CES": 4500017,
+        "Nom": "BERLIN 1670-2 A LN:ZB17",
+        "Binde": "Non",
+        "Outage": ("Oui;"
+            " 1) BERLIN 115 KV LINE 1670-2: RESVRD_J (1-20 sept);"
+            " 2) BERLIN 115 KV LINE 1752: ROCKY_HL (21 sept au 25 oct);"
+            " 3) BERLN_NH 115 KV LINE S136: WHITEFLD (13 sept 4h30-19h);"
+            " 4) SOTHNGTN 115 KV LINE 1771: SOTHNGTN (1-20 sept);"
+        ),
+    },
+    {
+        "CID_CES": 611316,
+        "Nom": "MANCHSTR_1310_A_LN:ZB70",
+        "Binde": "Non",
+        "Outage": "Oui, MANCHSTR 345 KV LINE 3557 (2-5 sept)",
+    },
+    {
+        "CID_CES": 611102,
+        "Nom": "MANCHSTR_1763_A_LN:ZB32",
+        "Binde": "Non",
+        "Outage": "Oui, MANCHSTR 345 KV LINE 3557 (2-5 sept)",
+    },
+    {
+        "CID_CES": 501152,
+        "Nom": "WALTHAM_282-520-2_A_LN:ACTUAL",
+        "Binde": "Non",
+        "Outage": "Oui, WATERTWN 115 KV LINE 282-521-1 (2 juin au 15 nov)",
+    },
+]
+
+df = pd.DataFrame(data)
+# df
+
+from itables import show
+import itables.options as opt
+
+opt.maxBytes = 0  # allow long cells
+opt.lengthMenu = [10, 25, 50, 100]
+
+show(df)
+
+```
+</details>
+

@@ -77,10 +77,21 @@ def table_nb_hour_bind(pool_id: int,cid_mag: int,mindate: str,maxdate: str,_conn
     
     df_nb_hour_bind.fillna(0,inplace=True)
 
+    # print("pool_id ", pool_id, "\n")
+
+    if pool_id == 3: # NEPOOL
+        # print("In block \n")
+        allowed_scenarios = ['NEPOOL_1MA_Default', 'NEPOOL_1DA_Default', 'SP_DA', 'SP_RT', 'NEPOOL_1MA_AvgHistSP', 'NEPOOL_1DA_AvgHistSP',
+                             'NEPOOL_1MA_DL_AvgSP', 'NEPOOL_1DA_DL_AvgSP']
+        if allowed_scenarios is not None:
+            df_nb_hour_bind = df_nb_hour_bind[df_nb_hour_bind["SCENARIONAME"].isin(allowed_scenarios)]
+
+
     # Apply formatting to all other columns
     for col in df_nb_hour_bind.columns:
         if col in ["SP","SP_PER_HOUR"]:
             df_nb_hour_bind[col] = df_nb_hour_bind[col].apply(lambda x: f"${x:,}")
+
 
     show(df_nb_hour_bind,
         classes="compact",
@@ -120,6 +131,16 @@ def get_all_cstr_data(pool_id: int,
     gu.shadowprice_monthly_fig(df_histo_SP,
                           cid_mag,
                           )
+    
+    if pool_id == 3:
+        # Remove the 1MA_AvgHistSP scenario for the hourly flow, category and
+        # transmission outage plots.
+        SCENARIOS_TO_REMOVE = {'NEPOOL_1MA_AvgHistSP'}    # or any scenarios you want removed
+
+        df_flows  = df_flows[~df_flows['SCENARIONAME'].isin(SCENARIOS_TO_REMOVE)]
+        df_catego = df_catego[~df_catego['SCENARIONAME'].isin(SCENARIOS_TO_REMOVE)]
+        df_outages = df_outages[~df_outages['SCENARIONAME'].isin(SCENARIOS_TO_REMOVE)]
+
 
     gu.hourly_figure( df_flows,
                   df_catego,

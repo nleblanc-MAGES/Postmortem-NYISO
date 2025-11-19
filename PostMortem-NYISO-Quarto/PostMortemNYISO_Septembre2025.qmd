@@ -1,0 +1,608 @@
+---
+title: "Postmortem NYPP Septembre 2025"
+author: "Nicolas Leblanc"
+date: today
+toc: true
+jupyter: python3
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+
+- Application des prébis, accessible via l'url : https://bidanalysis.magitdev.com/.
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+from IPython.display import Image, display
+import pandas as pd
+conn=init_connection()
+```
+
+## 📈 Evolution de la load et du vents
+- La LoadMin est plus adapté au début du mois, le LoadMax l'est plus vers la fin du mois.
+- Le LoadMax diminue au courant du mois.
+- Au début (1-7 septembre) et à la fin du mois (22-30 septembre) la différence entre le daily et le monthly (8-21 septembre) est plus petit qu'au milieu du mois.
+- La génération totale est cyclique.
+
+```{python}
+#| code-fold: true
+
+market = 'NYPP'
+start_date = '2025-09-01'
+end_date = '2025-09-30'
+
+df_Load=sq.get_Load([f'{market}_1DA_Default', f'{market}_1MA_Default', f'{market}_1MA_LoadMin',f'{market}_1MA_LoadMax']
+                  ,'2020-01-01'
+                  ,end_date
+                  ,conn
+                  )
+```
+
+- La génération de vent n'est pas cyclique.
+- Le monthly et le daily pour le vent sont similaieres au scénario WindMin au milieu du mois, mais ils diffèrent pour le reste du mois (11-20 septembre).
+
+```{python}
+# | echo: false
+df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_1MA_WindMin',f'{market}_1MA_WindMax']
+                  ,'2020-01-01'
+                  ,end_date
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL',start_date,end_date)
+gu.create_graph_wind(df_Wind,start_date,end_date)
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+#| code-fold: true
+
+df_PM=sq.get_PostMortem(1
+                        ,start_date
+                        ,end_date
+                        ,[f'{market}_1MA_Default', f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgSP',
+                        f'{market}_1DA_Default', f'{market}_1DA_AvgHistSP', f'{market}_1DA_DL_AvgSP',]
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+```
+
+<!-- **Contraintes en double :**
+
+- Il a des doublons dans des contraintes (même CONSTRAINT_NAME, CONTINGENCYNAME, et SP_DA), mais CID_MAG et CID_CES différents. Il a la contrainte SCRIBA 345 VOLNEY 345 1:SCRIBA__-VOLNEY___345_21 de nom et de contingence SCRIBA__-VOLNEY___345_21, puis contrainte de nom GOETHALS-GOWANUS 345KV 1 et de contingence BASE CASE. -->
+
+<!-- **Contraintes manquantes dans Dayzer :**
+
+- Les contraintes suivantes sont manquantes dans Dayzer:
+
+```{python}
+# | echo: false
+data = [
+{
+"Constraint name": "STEWRTAV-VALLYSTR 138KV 1",
+"Contingency name": "VALLYSTR-BARRETT__138_292"
+},
+{
+"Constraint name": "FOXHILLS-GREENWD 138KV 1",
+"Contingency name": "SCB:GOWANUS(18):26&42233&R20"
+},
+{
+"Constraint name": "GOETHALS-GOWANUS 345KV 1",
+"Contingency name": "BASE CASE"
+},
+{
+"Constraint name": "N.TROY 115 SYCAWAY 115 1",
+"Contingency name": "BUS:ALPS 1 & 6 & 393"
+},
+{
+"Constraint name": "FOXHILLS-GREENWD 138KV 2",
+"Contingency name": "VERNON_-GREENWD_138_31231 "
+},
+]
+
+df = pd.DataFrame(data)
+display(df)
+``` -->
+
+### Statistiques scénarios Monthly:
+- 1MA_Default: 6/10
+- 1MA_AvgHistSP: 6/10
+- 1MA_DL_AvgSP: 7/10
+- La combinaison capte: 7/10
+
+<!-- ### Statistiques scénarios Daily:
+- 1DA_Default: ?/10 (à changer après que le tableau de recap montre les contraintes DA, mais bug for now)
+- 1DA_AvgHistSP: ?/10
+- 1DA_DL_AvgSP: ?/10
+- La combinaison capte: ?/10 -->
+
+### Comparaison avec les top contraintes de Yes
+```{python}
+# | echo: false
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Septembre 2025 NYISO\TopContraintesDansYesSept2025_NYISO.png"))
+```
+
+**Problèmes avec les SP de l'interface de Yes :**
+
+- Il a une différence entre le shadow price pour la contrainte de nom SCH - HQ CEDARS et de contingence BASE CASE dans la BD de Yes (-274.74$ pour Yes et -275$ dans les DA des simulations de Dayzer) et le site web de Yes (875.40$). Il semble donc avoir un bug avec l'interface de Yes. Une autre information super importante est que cette contrainte bind dans le positif et dans le négatif!
+- Il a le même problème avec la contrainte de nom N.TROY 115 SYCAWAY 115 1:BUS:ALPS 1 & 6 & 393 et de contingence BUS:ALPS 1 & 6 & 393. On a un SP de -2153.24$ dans la BD de Yes et un SP de -1254$ dans les simulations DA de Dayzer.
+- Même chose pour la contrainte de nom GOETHALS-GOWANUS 345KV 1 et de contingence	BASE CASE. On a un SP de 1965.23$ dans la BD de Yes et un SP de 1965$/1611$ (la contrainte est répétée…) dans les simulations DA de Dayzer.
+
+## 🕵️ Analyses des contraintes
+```{python}
+#| code-fold: true
+
+# paramètres généraux
+pool_id=1
+ftrstartdate=start_date
+ftrenddate=end_date
+histostartdate=start_date
+histoenddate=end_date
+scenario_flows=[f'{market}_1MA_Default',f'{market}_1DA_Default',f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgtSP' ]
+scenario_first_priority=f'{market}_1DA_Default'
+scenario_sf=[f'{market}_1MA_Default',f'{market}_1DA_Default']
+scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
+                    f'{market}_1MA_AvgHistSP',
+                    f'{market}_1MA_DL_AvgtSP'
+                    ]
+```
+
+<details>
+  <summary> GRASRIVR 115 MOSES 115 1:SIN:MOSES-ALCOA_PA_115_MAL6&C6 </summary>
+
+**Infos :**
+
+- CID_MAG: 10002334
+- CID_CES: 311274
+- CES_NAME = 'GRASRIVR 115 MOSES    115 1 SIN:MOSES-ALCOA_PA_115_MAL6&C6_25583'
+- CONTINGENCYNAME: SIN:MOSES-ALCOA_PA_115_MAL6&C6
+- En RT, elle a bindé quand même souvent et pour beaucoup (9: 2224.20, 10: 778.42, 11: 2012.11, 15: 4825.64, 16: 1447.01, 17: 1033.47, 22: 2991.88, 23: 51.20, 25: 100.27)
+- Au DAM, la contrainte a bindé du 9 au 29 septembre pour une valeur allant de 0.57 (28 sept) à 100.66 (13 sept)
+
+**Analyse :**
+
+- Le modèle 1MA Dayzer prévoyait que la contrainte allait être en outage du 9 septembre jusqu’à la fin du mois. Le modèle 1DA de Dayzer prévoyait qu'elle était en outage du 9 au 19 septembre seulement. Il avait un problème dans Dayzer (voir courriel de François).
+- L’outage de ligne MOSES 115 KV -> ALCOA_N 115 KV (25582) que Dayzer prévoyait qu’elle allait être en outage du 9 septembre au 17 novembre 2025 dans le 1MA (Id: 5073) et du 19 octobre dans le 1DA (Id: 5074). Cet outage met 19.4-24.7% de redirected flow sur la contrainte, ce qui est significatif et semble être la cause principale de l’outage. Ceci peut aussi être vu par les dependent LODF dans Dayzer qui tournent autour de 0.8592. L’outage est connu comme 5074 MOS 115     ~115KV-GR-TAP2     ~115KV-2 dans le F5 de la contrainte du 1DA dans Dayzer.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10002334,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary> SCRIBA 345 VOLNEY 345 1:SCRIBA__-VOLNEY___345_21
+</summary>
+
+**Infos :**
+
+- CID_MAG: 10000422 et 10000210
+- CID_CES: 309877 et 301117
+- CES_NAME = 'SCRIBA 345 VOLNEY 345 1:SCRIBA__-VOLNEY___345_21'
+- CONTINGENCYNAME: SCRIBA__-VOLNEY___345_21
+- En RT, elle a bindé le 4 (2.21), 6 (36.07), 8 (0.03), 11 (11.31), 14 (0.56), 15 (20.85), et du 17 au 30 sept (min SP de 6.36 et max de 1885.32, en |.|)
+- Au DAM, la contrainte a bindé le 12 (16.71) et du 15 au 30 sept, sauf le 20, (min SP de 22.06 et max de 1520.04, en |.|)
+
+**Analyse :**
+
+- Pour la contrainte avec CID_MAG: 10000422 et CID_CES: 309877
+- L’outage CLAY 345 KV -> INDPDNCE 345 KV (25858). Elle est en outage du 15 septembre au 6 octobre selon le 1DA dans Dayzer, le 1MA de Dayzer pensait qu’elle allait commencer le 22 septembre. Cet outage redirige 9-11% de ses flows sur la contrainte. 
+- Dans le 1DA, la contrainte elle-même est tombée en outage du 16-18 septembre, elle aurait sûrement continué de binder dans le marcher sinon. 
+- Dans le 1MA, Dayzer n’avait pas capté l’outage de la contrainte.
+- En regardant les flows dans Thanos, la contrainte ne semble pas binder par contre…
+- Peut-être la contrainte a générée à cause de la production nucléaire de la génératrice Nine Mile Pt 2.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10000422,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+- Pour la contrainte avec CID_MAG: 10000210 et CID_CES: 301117
+- La contrainte est affectée par le même outage et a le même outage que décrit ci-dessus. L’outage redigire 17.1-20.5% de ses flows vers la contrainte. À l’inverse la contrainte	 ci-dessus, les flows montrent clairement que la contrainte binde
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10000210,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>ASTANNEX 138 ASTORIAE 138 1: BASE CASE</summary>
+
+**Infos :**
+
+- CID_MAG: 10000422
+- CID_CES: 201140 
+- CES_NAME = 'ASTANNEX 138 ASTORIAE 138 1: BASE CASE'
+- CONTINGENCYNAME: BASE CASE
+- En RT, elle a bindé le du 4 au 30 sept (min SP de 11.70 et max de 366.95, en |.|)
+- Au DAM, la contrainte a bindé du 6 au 30 sept (min SP de 121.11 et max de 406.90, en |.|)
+
+**Analyse :**
+
+- Dans le 1DA: Le générateur non renouvelable 1173 SCS Astoria Energy 2 augmente la congestion sur la contrainte (SF de 1, SF* Generation (avg)) de 281.7035 MW (et la contrainte à une limite maximale de 236 MW).
+- Il a aussi l’outage de ligne ASTORIAS 138 KV -> ASTORIAE 138 KV (25562), mais redirige moins de 5% de ses flows. 
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10000422,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>LAKSUCSS 138 SHORE_RD 138 1: BASE CASE</summary>
+
+**Infos :**
+
+- CID_MAG: 10001984
+- CID_CES: 201163 
+- CES_NAME = 'LAKSUCSS 138 SHORE_RD 138 1: BASE CASE'
+- CONTINGENCYNAME: BASE CASE
+- En RT, elle a bindé tous les jours du mois sauf le 7, 8, 9, 16, 17, 20 et 31 sept (min SP de 0.01 et max de 2980.62, en |.|)
+- Au DAM, la contrainte a bindé tous les jours du mois sauf le 9, 18, 19, 21, 22, 23, 24, 25 et 31 sept (min SP de 0.06 et max de 2982.13, en |.|)
+
+**Analyse :**
+
+- La contrainte était en outage elle aussi du 16-18 septembre.
+- L’outage de ligne LAKSUCSS 138 KV -> SHORE_RD 138 KV (25145) redirige 26-51% de ses flows dans Thanos sur la contrainte. L’outage était prévu dans les 1DA du 30 août au 30 septembre. Dans le 1MA, l’outage n’était pas prédit.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001984,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+
+<details>
+  <summary>CRICKVLY 345 PLSNTVLY 345 1:CRICKVLY-PLSNTVLY_345_F84</summary>
+
+**Infos :**
+
+- CID_MAG: 10000925
+- CID_CES: 310460 
+- CES_NAME = 'CRICKVLY 345 PLSNTVLY 345 1:CRICKVLY-PLSNTVLY_345_F84'
+- CONTINGENCYNAME: CRICKVLY-PLSNTVLY_345_F84
+- En RT, elle a bindé le 2 (1173.84), 4, 7, du 9-16 (3146.74), et du 22-29 (max SP de 386.41) sept
+- Au DAM, la contrainte a bindé tous les jours du mois sauf le 7, 8, 18, 20, 21 et 31 sept (min SP de 0.29 et max de 354.91, en |.|)
+
+**Analyse :**
+
+- La contrainte est en outage du 16-18 septembre elle aussi. 
+- Le 19 septembre, l’outage de ligne PLEASANT VLY -> CRICKET VALLEY (326888) met beaucoup de pression sur la contrainte (44.5% de ses flows dans Thanos). L’outage est prévu du 17-19 septembre dans le 1DA. L’outage semble manquant dans le 1MA dans Dayzer.
+- Le générateur 1115 Cricket Valley Energy Center crée beaucoup de congestion sur la contrainte (SF de 0.8511 et SF*Generation (avg) de 696.5097).
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10000925,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>GOETHALS 345 GOWANUS 345 1: BASE CASE</summary>
+
+**Infos :**
+
+- CID_MAG: 10001878 et 10001879
+- CID_CES: 200001 et 200002
+- CES_NAME = 'GOETHALS 345 GOWANUS 345 1: BASE CASE'
+- CONTINGENCYNAME: BASE CASE
+- En RT, la contrainte a surtout bindé du 20-25 sept (max SP de 818.15 le 20)
+- Au DAM, elle a surtout bindé du 17 au 30 sept (max SP de 264.00 le 25)
+
+**Analyse :**
+
+- Pour la contrainte avec CID_MAG: 10001878 et CID_CES: 200001
+- La contrainte était planifiée être en outage du 9 au 15 septembre dans 1MA de Dayzer. Dans le 1DA de Dayzer, l’outage de la contrainte était du 17 au 25 septembre.
+- Les génératrices 715 Linden Cogen_23786 1, 1490 Linden Cogen_23786 2 et 1559 Linden Cogen_23786 3 créent de la congestion sur la contrainte (SF de 0.5073 et SF*Generation (avg) de 121.2855 chaque) pour le fichier 1DA de Dayzer du 14 septembre.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001878,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+- Pour la contrainte avec CID_MAG: 10001879 et CID_CES: 200002
+- Dans le 1DA de Dayzer, l’outage de la contrainte était du 17 au 18 septembre. Cet outage n’a pas été prévu dans le 1MA de Dayzer.
+L’outage de ligne GOETHSLN 345 KV -> GOWANUSN 345 KV (25139) met beaucoup de pression (40-57% de ses flows dans Thanos pour le 1MA et 46-49% pour le 1DA). L’outage dure du 17-24 septembre selon le 1DA de Dayzer du 20 septembre.
+Les génératrices 715 Linden Cogen_23786 1 et 1490 Linden Cogen_23786 2 créent de la congestion sur la contrainte (SF de 0.4927 et SF*Generation (avg) de 214.7940 chaque) pour le fichier 1DA de Dayzer du 20 septembre.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001879,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>SCRIBA 345 VOLNEY 345 1:SCB:SCRIBA(R935):21&FS-10</summary>
+
+**Infos :**
+
+- CID_MAG: 10000306
+- CID_CES: 301224 
+- CES_NAME = 'SCRIBA 345 VOLNEY 345 1:SCB:SCRIBA(R935):21&FS-10'
+- CONTINGENCYNAME: SCB:SCRIBA(R935):21&FS-10
+- En RT, elle a bindé le 6 sept (15.23)
+- Au DAM, la contrainte a bindé le 15 (1.91), 16 (10.32), 18 (1.11), 19 (3.69), 20 (2.48), 21 (48.64), 23 (12.45)
+
+**Analyse :**
+
+- Dans le 1DA de Dayzer, l’outage de la contrainte était du 17 au 18 septembre. Cet outage n’a pas été prévu dans le 1MA de Dayzer.
+- L’outage CLAY 345 KV -> INDPDNCE 345 KV (25858). Elle est en outage du 15 septembre au 6 octobre selon le 1DA dans Dayzer, le 1MA de Dayzer pensait qu’elle allait commencer le 22 septembre.
+- Le 1MA prévoyait des redirected flows de cet outage dans le même intervalle que le 1DA, soit 19-22%.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10000306,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>MEYER 230 MEYER 1 1:SCB:STONYRDG(72/B102)72&BK1</summary>
+
+**Infos :**
+
+- CID_MAG: 10001654
+- CID_CES: 4500019 
+- CES_NAME = 'MEYER 230 MEYER 1 1:SCB:STONYRDG(72/B102)72&BK1'
+- CONTINGENCYNAME: SCB:STONYRDG(72/B102)72&BK1
+- En RT, la contrainte a bindé le 5 (366.43) et 6 (0.01) sept
+- Au DAM, elle a bindé le 5 (66.30) et 6 (1.22) sept
+
+**Analyse :**
+
+- Dans le 1DA de Dayzer, l’outage de la contrainte était du 17 au 18 septembre. Cet outage n’a pas été prévu dans le 1MA de Dayzer.
+- La génératrice 52077 Moses Niagara (Fleet)_23760 cause de la congestion sur la contrainte (SF de 0.0387 et SF*Generation (avg) de 56.3267).
+- Le fichier dzr du 1MA semble absent, donc j’ai utilisé le scout 1MA du 5 septembre.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001654,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>BARRETT 138 VALLYSTR 138 1: BASE CASE</summary>
+
+**Infos :**
+
+- CID_MAG: 10001925
+- CID_CES: 201001 
+- CES_NAME = 'BARRETT 138 VALLYSTR 138 1: BASE CASE'
+- CONTINGENCYNAME: BASE CASE
+- En RT, elle a bindé le 3 (72.62), 3 (452.16), 5 (891.65), 6 (3.45) et 12 (0.51)
+- Au DAM, la contrainte a bindé le 3 (11.53), 4 (0.15) et 5 (44.16)
+
+**Analyse :**
+
+- Dans le 1DA de Dayzer, l’outage de la contrainte était du 17 au 18 septembre. Cet outage n’a pas été prévu dans le 1MA de Dayzer.
+- L’outage de la ligne BARRET 138 KV -> VALLYSTR 138 KV (25312), qui n’a pas été prédit dans le scout 1MA (pas le vrai 1MA, car le fichier du vrai 1MA du 5 sept est manquant), cause beaucoup de congestion sur la contrainte. L’outage était prévu du 3 au 5 septembre dans le 1DA.
+Celle-ci redirige 43-47% de ses flux à la contrainte dans les jours du 3-5 septembre.
+- L’effet des unités 85 Barret ST01 et 86 Barret ST 02 ont été prévus dans le scout 1MA du 5 septembre (pas le vrai 1MA, car le fichier du vrai 1MA du 5 sept est manquant) étaient moindre que ceux dans le 1DA.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001925,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>N.TROY 115 SYCAWAY 115 1:BUS:ALPS 1 & 6 & 393</summary>
+
+**Infos :**
+
+- CID_MAG: 10001516
+- CID_CES: 311124 
+- CES_NAME = 'N.TROY 115 SYCAWAY 115 1:BUS:ALPS 1 & 6 & 393'
+- CONTINGENCYNAME: BUS:ALPS 1 & 6 & 393
+- En RT, elle a bindé le 10 sept (118.97)
+- Au DAM, la contrainte a bindé le 7 (6.72), 10 (2.29), 15 (0.16), 18 (5.91), 23 (37.49), 24 (14.54), 25 (13.82), 26 (6.32), 28 (0.01) et 30 sept (2.47)
+
+**Analyse :**
+
+- Dans le 1DA de Dayzer, l’outage de la contrainte était du 17 au 18 septembre. Cet outage n’a pas été prévu dans le 1MA de Dayzer.
+- Dans le 1DA, l’outage de ligne REYNOLDS 115 KV -> WYNTKLNM 115 KV (26143) redistribue 16.6% de ses flows à la contrainte le 3 septembre. Ceci est causé par un outage le 3 septembre de 8h à 18h donné dans le 1DA. Le 1MA ne voit rien de ceci. Le transmission outages Id dans Dayzer est 3862.
+- L’unité 114 Bethlehem GS1 semble créer de la congestion sur la contrainte (SF de 0.1338 et SF*Generation (avg) de 45.4941 quand le flow sur la contrainte est de 114.4 MW à 8h le 3 septembre dans le fichier Dayzer 1DA)
+
+
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001516,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
