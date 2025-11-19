@@ -24,7 +24,7 @@ execute:
 
 <!-- Importation des librairies et initalisation de la connection -->
 ```{python}
-#| code-fold: true
+# | echo: false
 # Import necessary libraries
 from services import snowflake_queries as sq
 from components import graph_utils as gu, constraint_utils as cu
@@ -61,7 +61,7 @@ df_Load=sq.get_Load([f'{market}_1DA_Default', f'{market}_1MA_Default', f'{market
 - Le monthly et le daily pour le vent sont similaieres au scénario WindMin au milieu du mois, mais ils diffèrent pour le reste du mois (11-20 septembre).
 
 ```{python}
-# | echo: false
+#| code-fold: true
 df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_1MA_WindMin',f'{market}_1MA_WindMax']
                   ,'2020-01-01'
                   ,end_date
@@ -107,38 +107,6 @@ show(df_PM,
 
 - Il a des doublons dans des contraintes (même CONSTRAINT_NAME, CONTINGENCYNAME, et SP_DA), mais CID_MAG et CID_CES différents. Il a la contrainte SCRIBA 345 VOLNEY 345 1:SCRIBA__-VOLNEY___345_21 de nom et de contingence SCRIBA__-VOLNEY___345_21, puis contrainte de nom GOETHALS-GOWANUS 345KV 1 et de contingence BASE CASE. -->
 
-<!-- **Contraintes manquantes dans Dayzer :**
-
-- Les contraintes suivantes sont manquantes dans Dayzer:
-
-```{python}
-# | echo: false
-data = [
-{
-"Constraint name": "STEWRTAV-VALLYSTR 138KV 1",
-"Contingency name": "VALLYSTR-BARRETT__138_292"
-},
-{
-"Constraint name": "FOXHILLS-GREENWD 138KV 1",
-"Contingency name": "SCB:GOWANUS(18):26&42233&R20"
-},
-{
-"Constraint name": "GOETHALS-GOWANUS 345KV 1",
-"Contingency name": "BASE CASE"
-},
-{
-"Constraint name": "N.TROY 115 SYCAWAY 115 1",
-"Contingency name": "BUS:ALPS 1 & 6 & 393"
-},
-{
-"Constraint name": "FOXHILLS-GREENWD 138KV 2",
-"Contingency name": "VERNON_-GREENWD_138_31231 "
-},
-]
-
-df = pd.DataFrame(data)
-display(df)
-``` -->
 
 ### Statistiques scénarios Monthly:
 - 1MA_Default: 6/10

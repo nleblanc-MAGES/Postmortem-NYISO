@@ -59,6 +59,7 @@ df_Load=sq.get_Load([f'{market}_1DA_Default', f'{market}_1MA_Default', f'{market
 <!-- - Le monthly et le daily pour le vent sont similaires -->
 
 ```{python}
+#| code-fold: true
 df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_1MA_WindMin',f'{market}_1MA_WindMax']
                   ,'2020-01-01'
                   ,end_date
