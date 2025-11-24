@@ -126,11 +126,11 @@ show(df_PM,
 display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Septembre 2025 NYISO\TopContraintesDansYesSept2025_NYISO.png"))
 ```
 
-**Problèmes avec les SP de l'interface de Yes :**
+<!-- **Problèmes avec les SP de l'interface de Yes :** -->
 
-- Il a une différence entre le shadow price pour la contrainte de nom SCH - HQ CEDARS et de contingence BASE CASE dans la BD de Yes (-274.74$ pour Yes et -275$ dans les DA des simulations de Dayzer) et le site web de Yes (875.40$). Il semble donc avoir un bug avec l'interface de Yes. Une autre information super importante est que cette contrainte bind dans le positif et dans le négatif!
+<!-- - Il a une différence entre le shadow price pour la contrainte de nom SCH - HQ CEDARS et de contingence BASE CASE dans la BD de Yes (-274.74$ pour Yes et -275$ dans les DA des simulations de Dayzer) et le site web de Yes (875.40$). Il semble donc avoir un bug avec l'interface de Yes. Une autre information super importante est que cette contrainte bind dans le positif et dans le négatif!
 - Il a le même problème avec la contrainte de nom N.TROY 115 SYCAWAY 115 1:BUS:ALPS 1 & 6 & 393 et de contingence BUS:ALPS 1 & 6 & 393. On a un SP de -2153.24$ dans la BD de Yes et un SP de -1254$ dans les simulations DA de Dayzer.
-- Même chose pour la contrainte de nom GOETHALS-GOWANUS 345KV 1 et de contingence	BASE CASE. On a un SP de 1965.23$ dans la BD de Yes et un SP de 1965$/1611$ (la contrainte est répétée…) dans les simulations DA de Dayzer.
+- Même chose pour la contrainte de nom GOETHALS-GOWANUS 345KV 1 et de contingence	BASE CASE. On a un SP de 1965.23$ dans la BD de Yes et un SP de 1965$/1611$ (la contrainte est répétée…) dans les simulations DA de Dayzer. -->
 
 ## 🕵️ Analyses des contraintes
 ```{python}

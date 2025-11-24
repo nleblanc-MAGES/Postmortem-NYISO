@@ -34,6 +34,8 @@ from itables import show, JavascriptFunction
 import ipywidgets as widgets
 from IPython.display import Image, display
 import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 conn=init_connection()
 ```
 
@@ -68,6 +70,128 @@ df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_
 
 gu.create_graph_load(df_Load,'TOTAL',start_date,end_date)
 gu.create_graph_wind(df_Wind,start_date,end_date)
+```
+
+## Métriques
+
+```{python}
+# | echo: false
+
+query = f"""
+SELECT *
+FROM TABLE(
+    MAGSNOWFLAKE.DAYZER.FN_METRICS_MONTHLY(
+        3,
+        ARRAY_CONSTRUCT('NEPOOL_1MA_AvgHistSP','NEPOOL_1MA_Default','NEPOOL_1MA_DL_AvgSP'),
+        DATE('2024-04-01'),
+        DATE('{end_date}'),
+        50
+    )
+)
+"""
+
+df_metriques = pd.read_sql(query, conn)
+
+metrics = [
+    "PCT_CAPTE_DU_SP_TOTAL_CUTOFF",
+    "PCT_FP_SUP_CUTOFF_DZR",
+    "AVG_ERR_ABS_TP"
+]
+
+scenarios = [
+    "NEPOOL_1MA_AvgHistSP",
+    "NEPOOL_1MA_Default",
+    "NEPOOL_1MA_DL_AvgSP"
+]
+
+df_metriques = df_metriques[df_metriques["SCENARIONAME"].isin(scenarios)]
+
+
+```
+
+### PCT_CAPTE_DU_SP_TOTAL_CUTOFF
+
+- Pourcentage du SP capté par scénario (CUTOFF 50$): uniquement pour les contraintes captées par Dayzer et qui ont bindé dans le marché, par rapport au SP total du marché
+- 100*SUM(ABS(SP_MKT) uniquement celle captées par Dayzer et dont le SP_DZR est supérieur au CutOff)/SUM(ABS(SP_MKT de toutes les contraintes) )
+
+```{python}
+# | echo: false
+
+metric = "PCT_CAPTE_DU_SP_TOTAL_CUTOFF"
+
+plt.figure(figsize=(12, 6))
+
+for scenario in scenarios:
+    temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+plt.title(metric)
+plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+plt.legend()
+plt.grid(True)
+ax = plt.gca()
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+plt.xticks(rotation=45)
+plt.show()
+    
+```
+
+### PCT_FP_SUP_CUTOFF_DZR
+
+- Pourcentage des faux positifs: Nombre des contraintes qui bindent dans Dayzer et qui ne bindent pas dans le marché, divisé par le nombre total de contrainte qui bindent dans Dayzer avec ABS(SP_DZR) >= CutOff (=50$)
+
+```{python}
+# | echo: false
+
+metric = "PCT_FP_SUP_CUTOFF_DZR"
+
+plt.figure(figsize=(12, 6))
+
+for scenario in scenarios:
+    temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+plt.title(metric)
+plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+plt.legend()
+plt.grid(True)
+ax = plt.gca()
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+plt.xticks(rotation=45)
+plt.show()
+    
+```
+
+### AVG_ERR_ABS_TP
+
+- Moyenne des erreurs absolues pour les vrais positifs: AVG(ABS(ABS(SP_MKT)-ABS(SP_DZR)))
+
+```{python}
+# | echo: false
+
+metric = "AVG_ERR_ABS_TP"
+
+plt.figure(figsize=(12, 6))
+
+for scenario in scenarios:
+    temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+plt.title(metric)
+plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+plt.legend()
+plt.grid(True)
+ax = plt.gca()
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+plt.xticks(rotation=45)
+plt.show()
+    
 ```
 
 ## 𝄜 Top contraintes du mois
@@ -145,8 +269,8 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 **Infos :**
 
 - CID_MAG: 30002873
-- CID_CES: 1062
-- CES_NAME = 'IRFM-E'
+- CID_CES: 1059
+- CES_NAME = 'Inner Rumford Export (IRMF-E)'
 - CONTINGENCYNAME: INTERFACE
 - Elle a très fréquemment bindé au RT.
 - Elle a souvent bindé au DAM.
@@ -211,7 +335,6 @@ cu.get_all_cstr_data(pool_id,
 **Analyse :**
 
 - Il n'est pas clair pourquoi la contrainte binde, mais il se peut que 2087 Burgess BioPower ait eu un effet.
-- La contrainte semble avoir bindé à cause de la génération du Burgess BioPower.
 - L'outage de ligne suivant est dans le coin. Il était présent dans les monthlys et les dailys.
 
 ```{python}
@@ -260,7 +383,7 @@ cu.get_all_cstr_data(pool_id,
 - CID_MAG: 30002880
 - CID_CES: 1066
 <!-- - MKUNITCID: 25583_1044 -->
-- CES_NAME = 'KCW'
+- CES_NAME = 'Kingdom Wind Generation (KCW)'
 - CONTINGENCYNAME: INTERFACE
 - Elle a surtout bindé en RT le 9 (-616.30) octobre.
 - Elle a bindé au DAM le 9 (-886.66) et 13 (-960.49) octobre.
@@ -520,12 +643,12 @@ cu.get_all_cstr_data(pool_id,
 
 **Infos :**
 
-- CID_MAG: 30002845
+- CID_MAG: 30002928
 - CID_CES: 1120
 - CES_NAME = 'Reenergy Stratton Generation (STRA)'
 - CONTINGENCYNAME: INTERFACE
 - Il manquait le mapping entre la contrainte dans Dayzer et dans Yes, donc on l'a ajouté.
-- La contrainte n'a pas de données d'historique de son SP dans Yes Energy...
+- La contrainte a bindé au DAM en septembre pour 56.40$. En octobre, elle a bindé pour 889.52$ en RT et 1225.63$ au DAM.
 
 
 **Analyse :**
@@ -536,7 +659,7 @@ cu.get_all_cstr_data(pool_id,
 # | echo: false
 
 cu.get_all_cstr_data(pool_id,
-                      30002845,
+                      30002928,
                       ftrstartdate,
                       ftrenddate,
                       histostartdate,
@@ -560,7 +683,7 @@ cu.get_all_cstr_data(pool_id,
 - CID_MAG: 30000052
 - CID_CES: 610094
 <!-- - MKUNITCID: 25583_1044 -->
-- CES_NAME = 'GRAHAM66BHEALN'
+- CES_NAME = 'GRAHAM_66BHE_A_LN:205'
 - CONTINGENCYNAME: 205
 - Elle a bindé en RT le 1 (3.88) et 31 (-79.43).
 - Elle a bindé au DAM le 1 (-65.50), 8 (-186.90), 9 (-2.33), 15 (-88.45), 16 (-429.08), 20 (-16.39), 23 (-9.65) et 31 (-181.68).
@@ -781,7 +904,7 @@ display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 N
 display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\BindingConstraintsButNotMapped_ORRINGTN249_NEPOOL_PM_Oct2025.png"))
 ```
 
-- La contrainte a bindé du (20,21,23) octobre à cause de l'outage donné ici. Ils sont présents dans les dailys de Dayzer:
+- La contrainte a bindé du (20,21,23) octobre à cause de l'outage ORRINGTN - GRAHAM (246). Ils sont présents dans les dailys de Dayzer:
 ```{python}
 # | echo: false
 data = [
@@ -818,7 +941,7 @@ display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 N
 - CID_MAG: 30002862
 - CID_CES: 1047
 <!-- - MKUNITCID: 25583_1044 -->
-- CES_NAME = 'KR-EXP'
+- CES_NAME = 'KEENE ROAD EXPORT INTERFACE (KR-EXP)'
 - CONTINGENCYNAME: INTERFACE
 - Elle a bindé en RT le 9 (-2.20) et 31 (-248.57) octobre.
 - Elle a bindé au DAM le 1 (-71.35), 7 (-16.02), 8 (-190.17), 9 (-34.85), 15 (-42.00), et 16 (-151.66) octobre.
@@ -826,7 +949,7 @@ display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 N
 **Analyse :**
 
 - La contrainte semble avoir bindé à cause de la génération de vent (ROLLINS WIND PLANT, STETSON WIND FARM, et STETSON II WIND FARM) et d'hydro (Greatlakes Millinocket Hydro).
-- Il a les outages suivants dans le coin, mais ils ne semblent pas affecter la contrainte:
+- Il a l'outage suivant dans le coin, mais il ne semble pas affecter la contrainte:
 ```{python}
 # | echo: false
 data = [
@@ -879,54 +1002,63 @@ data = [
         "CID_CES": 611069,
         "Nom": "JOHNST_T_T172S-3_A_LN:S171",
         "Binde": "Non",
+        "Potentiel":"1/5",
         "Outage": "Non, l'outage génératrice Manchester (12-19 octobre)",
     },
     {
         "CID_CES": 610483,
         "Nom": "HARTF_AV_E105_A_LN:F106",
         "Binde": "Non",
+        "Potentiel":"1.5/5",
         "Outage": "Non, l'outage génératrice Manchester (12-19 octobre)",
     },
     {
         "CID_CES": 610484,
         "Nom": "HARTF_AV_F106_A_LN:E105",
         "Binde": "Non",
+        "Potentiel":"1.5/5",
         "Outage": "Non, l'outage génératrice Manchester (12-19 oct)",
     },
     {
         "CID_CES": 661371,
         "Nom": "TOWANTIC_1789_A_LN:1340",
         "Binde": "Non",
+        "Potentiel":"1.5/5",
         "Outage": "Oui, FREIGHT 115 KV LINE 1668: FREIGHT (15 oct, et non le 14)",
     },
     {
         "CID_CES": 611251,
         "Nom": "FRSTBRDG_1445_A_LN:1340",
         "Binde": "Non",
+        "Potentiel":"0.5/5",
         "Outage": "Oui, FREIGHT 115 KV LINE 1668: FREIGHT (15 oct, et non le 14)",
     },
     {
         "CID_CES": 611330,
         "Nom": "SHAWS_HL_1272_A_LN:1340",
         "Binde": "Non",
+        "Potentiel":"0.5/5",
         "Outage": "Oui, FREIGHT 115 KV LINE 1668: FREIGHT (15 oct, et non le 14)",
     },
     {
         "CID_CES": 611005,
         "Nom": "MONTVLLE19X XFMR:364",
         "Binde": "Non",
+        "Potentiel":"2/5",
         "Outage": "Oui, CARD 345 KV LINE 383: MILSTONE (6, 9-10, 14-17, et 20-23 oct)",
     },
     {
         "CID_CES": 1080,
         "Nom": "Burgess Generation (BURG)",
         "Binde": "Oui! Pour le mois, 3831.46$ en RT et 3444.70$ au DAM",
+        "Potentiel":"3.5/5",
         "Outage": "Oui, BERLN_NH 115 KV LINE S136: WHITEFLD (14-26 oct)",
     },
     {
         "CID_CES": 22102162,
         "Nom": "STARKS_278-1_A_LN:264",
         "Binde": "Non",
+        "Potentiel":"2/5",
         "Outage": ("Oui;"
             " 1) WYMAN_HY 115 KV LINE 83-2 (20-24 oct, 24 pas 27);"
             " 2) HEYWOOD 115 KV LINE 83-1 (14-17 oct, 14 pas 13);"
@@ -938,6 +1070,7 @@ data = [
         "CID_CES": 611183,
         "Nom": "WYMAN_HY_83-2_A_LN:264",
         "Binde": "Non",
+        "Potentiel":"0.5/5",
         "Outage": ("Oui;"
               " 1) WYMAN_HY 115 KV LINE 83-2 (20-24 oct, 24 pas 27);"
               " 2) HEYWOOD 115 KV LINE 83-1 (14-17 oct, 14 pas 13);"
@@ -949,6 +1082,7 @@ data = [
         "CID_CES": 22102160,
         "Nom": "ALBIONRD_84_A_LN:259",
         "Binde": "Non",
+        "Potentiel":"0.5/5",
         "Outage": ("Oui;"
               " 1) WYMAN_HY 115 KV LINE 83-2 (20-24 oct, 24 pas 27);"
               " 2) HEYWOOD 115 KV LINE 83-1 (14-17 oct, 14 pas 13);"
@@ -960,6 +1094,7 @@ data = [
         "CID_CES": 1061,
         "Nom": "Wyman Hydro Export (WYM-EX)",
         "Binde": "Oui! Pour le mois, 609$ en RT et 10.43$ au DAM",
+        "Potentiel":"2.5/5",
         "Outage": ("Oui;"
               " 1) WYMAN_HY 115 KV LINE 83-2 (20-24 oct, 24 pas 27);"
               " 2) HEYWOOD 115 KV LINE 83-1 (14-17 oct, 14 pas 13);"
@@ -971,6 +1106,7 @@ data = [
         "CID_CES": 610185,
         "Nom": "E_WEYM_T_478-508-1_A_LN:478A",
         "Binde": "Non",
+        "Potentiel":"1.5/5",
         "Outage": ("Oui;"
               " 1) E_WEYM_T 115 KV LINE 478-503-1: E_WEYM_T (21 oct 1-15h);"
               " 2) E_WEYM_T 115 KV LINE 478-503-4: E_WEYM_T (21 oct 1-15h);"
@@ -983,6 +1119,7 @@ data = [
         "CID_CES": 22000066,
         "Nom": "SWFBCH_T_478-502-1_A_LN:ACTUAL",
         "Binde": "Non",
+        "Potentiel":"1.5/5",
         "Outage": ("Oui;"
               " 1) E_WEYM_T 115 KV LINE 478-503-1: E_WEYM_T (21 oct 1-15h);"
               " 2) E_WEYM_T 115 KV LINE 478-503-4: E_WEYM_T (21 oct 1-15h);"
@@ -995,6 +1132,7 @@ data = [
         "CID_CES": 22000023,
         "Nom": "GROVE_478-509-2_A_LN:ACTUAL",
         "Binde": "Non",
+        "Potentiel":"1.5/5",
         "Outage": ("Oui;"
               " 1) E_WEYM_T 115 KV LINE 478-503-1: E_WEYM_T (21 oct 1-15h);"
               " 2) E_WEYM_T 115 KV LINE 478-503-4: E_WEYM_T (21 oct 1-15h);"

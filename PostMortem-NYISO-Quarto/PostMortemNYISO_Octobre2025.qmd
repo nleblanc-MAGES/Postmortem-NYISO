@@ -194,7 +194,7 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 
 - Dans le modèle 1DA_Default, la contrainte semble avoir bindé à cause de la source de génération non renouvelable provenant de sources telles que SCS Astoria Energy 2.
 - Pour le scénario 1MA_DL_AvgSP, elle bindait parfois à cause de la production non renouvelable.
-- Dans les modèles 1MA_Default et 1MA_DL_AvgSP, la contrainte bindait parfois, mais pour très peu, et elle binde à cause des virtual imports et exports, donc des loopflows.
+- Dans les modèles 1MA_Default et 1MA_DL_AvgSP, la contrainte bindait parfois, mais pour très peu, et elle binde à cause des virtual imports et exports (loopflows).
 
 ```{python}
 # | echo: false
@@ -221,9 +221,11 @@ cu.get_all_cstr_data(pool_id,
 
 **Infos :**
 
-- CID_MAG: 10000422 et 10000210
-- CID_CES: 309877 et 301117
-- CES_NAME = 'SCRIBA 345 VOLNEY 345 1:SCRIBA__-VOLNEY___345_21'
+- CID_MAG: 10000210
+<!-- et 10000422 -->
+- CID_CES: 301117 
+<!-- et 309877 -->
+- CES_NAME = 'SCRIBA__-VOLNEY___345_20:SCRIBA__-VOLNEY___345_21_(25204)'
 - CONTINGENCYNAME: SCRIBA__-VOLNEY___345_21
 - En RT, la contrainte a bindé du 1-3 (max en || de 489.99), 5-7 (max en || de 1042.04), 19-21 (max en || de 104.17) et le 29 oct (0.53).
 - Au DAM, elle contrainte a bindé du 1-6 (max en || de 647.39), le 13 (1080.45), du 18-26 (max en || de 219.34), le 28 (2.34) et le 30 (215.99).
@@ -290,6 +292,7 @@ cu.get_all_cstr_data(pool_id,
 **Analyse :**
 
 - Dans le 1MA_Default, l'outage de ligne HOLBROOK 138 KV -> RONKOKMA 138 KV (25541) était planifié commencer le 6 octobre et de durer jusqu'au 21 novembre. En réalité, l'outage a commencé le 29 septembre. Dans le 1DA_Default, l'outage commence a la bonne date de début, mais il semble avoir une pause de l'outage du 1-3 oct.
+- Cet outage semble fortement impacter la contrainte.
 - Pour le scénario 1MA_DL_AvgSP: La contrainte binde à cause de la production non renouvelable, le vent et les imports/exports.
 - Avant le 21 octobre pour le scénario 1DA_DL_AvgSP: La contrainte a peut-être bindé à cause de la load (NY Long Island) avec les imports/exports (CROSS SOUND NY) et de la génération non renouvelable qui soulageaient.
 - Après le 21 octobre pour le scénario 1DA_DL_AvgSP: La contrainte a peut-être bindé à cause d'une combinaison des imports/exports (CROSS SOUND NY), de la génération non renouvelable (Caithness_CC_1) et du vent (South Fork Offshore Wind) avec la load qui soulageait.

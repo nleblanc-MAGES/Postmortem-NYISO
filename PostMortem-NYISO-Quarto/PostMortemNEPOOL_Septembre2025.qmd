@@ -34,6 +34,8 @@ from itables import show, JavascriptFunction
 import ipywidgets as widgets
 from IPython.display import Image, display
 import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 conn=init_connection()
 ```
 
@@ -70,10 +72,132 @@ gu.create_graph_load(df_Load,'TOTAL',start_date,end_date)
 gu.create_graph_wind(df_Wind,start_date,end_date)
 ```
 
+## Métriques
+
+```{python}
+# | echo: false
+
+query = f"""
+SELECT *
+FROM TABLE(
+    MAGSNOWFLAKE.DAYZER.FN_METRICS_MONTHLY(
+        3,
+        ARRAY_CONSTRUCT('NEPOOL_1MA_AvgHistSP','NEPOOL_1MA_Default','NEPOOL_1MA_DL_AvgSP'),
+        DATE('2024-04-01'),
+        DATE('{end_date}'),
+        50
+    )
+)
+"""
+
+df_metriques = pd.read_sql(query, conn)
+
+metrics = [
+    "PCT_CAPTE_DU_SP_TOTAL_CUTOFF",
+    "PCT_FP_SUP_CUTOFF_DZR",
+    "AVG_ERR_ABS_TP"
+]
+
+scenarios = [
+    "NEPOOL_1MA_AvgHistSP",
+    "NEPOOL_1MA_Default",
+    "NEPOOL_1MA_DL_AvgSP"
+]
+
+df_metriques = df_metriques[df_metriques["SCENARIONAME"].isin(scenarios)]
+
+
+```
+
+### PCT_CAPTE_DU_SP_TOTAL_CUTOFF
+
+- Pourcentage du SP capté par scénario (CUTOFF 50$): uniquement pour les contraintes captées par Dayzer et qui ont bindé dans le marché, par rapport au SP total du marché
+- 100*SUM(ABS(SP_MKT) uniquement celle captées par Dayzer et dont le SP_DZR est supérieur au CutOff)/SUM(ABS(SP_MKT de toutes les contraintes) )
+
+```{python}
+# | echo: false
+
+metric = "PCT_CAPTE_DU_SP_TOTAL_CUTOFF"
+
+plt.figure(figsize=(12, 6))
+
+for scenario in scenarios:
+    temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+plt.title(metric)
+plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+plt.legend()
+plt.grid(True)
+ax = plt.gca()
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+plt.xticks(rotation=45)
+plt.show()
+    
+```
+
+### PCT_FP_SUP_CUTOFF_DZR
+
+- Pourcentage des faux positifs: Nombre des contraintes qui bindent dans Dayzer et qui ne bindent pas dans le marché, divisé par le nombre total de contrainte qui bindent dans Dayzer avec ABS(SP_DZR) >= CutOff (=50$)
+
+```{python}
+# | echo: false
+
+metric = "PCT_FP_SUP_CUTOFF_DZR"
+
+plt.figure(figsize=(12, 6))
+
+for scenario in scenarios:
+    temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+plt.title(metric)
+plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+plt.legend()
+plt.grid(True)
+ax = plt.gca()
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+plt.xticks(rotation=45)
+plt.show()
+    
+```
+
+### AVG_ERR_ABS_TP
+
+- Moyenne des erreurs absolues pour les vrais positifs: AVG(ABS(ABS(SP_MKT)-ABS(SP_DZR)))
+
+```{python}
+# | echo: false
+
+metric = "AVG_ERR_ABS_TP"
+
+plt.figure(figsize=(12, 6))
+
+for scenario in scenarios:
+    temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+plt.title(metric)
+plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+plt.legend()
+plt.grid(True)
+ax = plt.gca()
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+plt.xticks(rotation=45)
+plt.show()
+    
+```
+
 ## 𝄜 Top contraintes du mois
 
 ```{python}
-#| code-fold: true
+# | echo: false
 
 df_PM=sq.get_PostMortem(pool_id
                         ,start_date
@@ -102,6 +226,7 @@ show(df_PM,
 
 
 ```
+
 
 ### Statistiques scénarios Monthly:
 - 1MA_Default: 5/7
@@ -264,7 +389,7 @@ cu.get_all_cstr_data(pool_id,
 - CID_MAG: 30002880
 - CID_CES: 1066
 <!-- - MKUNITCID: 25583_1044 -->
-- CES_NAME = 'KCW'
+- CES_NAME = 'Kingdom Wind Generation (KCW)'
 - CONTINGENCYNAME: INTERFACE
 - Elle a bindé en RT le 10 (-16.64), 22 (-12.81), et 26 (-282.67) septembre.
 - Elle a bindé au DAM le 19 (-5.06), 25 (-85.95), 26 (-529.32), et 30 (-3.62).
@@ -448,7 +573,7 @@ cu.get_all_cstr_data(pool_id,
 - CID_MAG: 30002862
 - CID_CES: 1047
 <!-- - MKUNITCID: 25583_1044 -->
-- CES_NAME = 'KR-EXP'
+- CES_NAME = 'KEENE ROAD EXPORT INTERFACE (KR-EXP)'
 - CONTINGENCYNAME: INTERFACE
 - Elle a bindé en RT le 22 (-11.89), 28 (-85.30), et 30 (-12.26) septembre.
 - Elle a bindé au DAM le 5 (-28.29), 19 (-4.82), 28 (-56.61), et 30 (-95.02) septembre.
@@ -546,7 +671,7 @@ cu.get_all_cstr_data(pool_id,
 - CID_MAG: 30000052
 - CID_CES: 610094
 <!-- - MKUNITCID: 25583_1044 -->
-- CES_NAME = 'GRAHAM66BHEALN'
+- CES_NAME = 'GRAHAM_66BHE_A_LN:205'
 - CONTINGENCYNAME: 205
 - Elle ne semble pas binder en RT.
 - Elle a bindé au DAM le 5 (-18.49), 6 (-30.60), 25 (-30.37), et 26 (-74.86).
@@ -622,24 +747,28 @@ data = [
         "CID_CES": 501236,
         "Nom": "TIVERTON_M13-6_A_LN:ACTUAL",
         "Binde": "Non",
+        "Potentiel":"1.5/5",
         "Outage": "Oui, CANONCUS 115 KV LINE L14-7 (2 sep au 25 nov)",
     },
     {
         "CID_CES": 610484,
         "Nom": "HARTF_AV_F106_A_LN:E105",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": "Oui, FARNPIKE 115 KV LINE S171N-3 (2 sep au 7 oct)",
     },
     {
         "CID_CES": 610483,
         "Nom": "HARTF_AV_E105_A_LN:F106",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": "Oui, FARNPIKE 115 KV LINE S171N-3 (2 sep au 7 oct)",
     },
     {
         "CID_CES": 611255,
         "Nom": "BUNKR_HL_1029-2_A_LN:1789",
         "Binde": "Non",
+        "Potentiel":"2/5",
         "Outage": ("Oui;"
             " 1) BEACN_FL 115 KV LINE 1808-1 (2-6 sept, 15 sept au 18 oct);"
             " 2) S_NAUGTK 115 KV LINE 1142 (2-13 sept);"
@@ -650,6 +779,7 @@ data = [
         "CID_CES": 22102263,
         "Nom": "GLENLK_J_1610-2_A_LN:387",
         "Binde": "Non",
+        "Potentiel":"1/5",
         "Outage": ("Oui;"
             " 1) ALLINGS 115 KV LINE 8904B: WOODMONT (5 sept au 5 oct);"
             " 2) ALLINGS 115 KV LINE 8804A: WOODMONT (5-7 et 12-14 sept, 21 sept-1 oct);"
@@ -663,24 +793,28 @@ data = [
         "CID_CES": 500310,
         "Nom": "CHASE_PD_222_A_LN:ACTUAL",
         "Binde": "Non",
+        "Potentiel":"0.5/5",
         "Outage": "",
     },
     {
         "CID_CES": 611309,
         "Nom": "MASON_68_A_LN:3025",
         "Binde": "Non",
+        "Potentiel":"1/5",
         "Outage": "Oui, ME_YK 345 KV LINE 392 (29 sept au 1 oct)",
     },
     {
         "CID_CES": 661404,
         "Nom": "STARKS_278-1_A_LN:3025",
         "Binde": "Non",
+        "Potentiel":"1/5",
         "Outage": "Oui, ME_YK 345 KV LINE 392 (29 sept au 1 oct)",
     },
     {
         "CID_CES": 661388,
         "Nom": "DIGHTON_V5-1_A_LN:DCT5",
         "Binde": "Non",
+        "Potentiel":"1/5",
         "Outage": ("Oui;"
             " 1) RAYNHAM 115 KV LINE S8-2: TAUNTON (15-17 sept);"
             " 2) TAUNTN_T 115 KV LINE S8-1 (15-17 sept);"
@@ -691,6 +825,7 @@ data = [
         "CID_CES": 1059,
         "Nom": "Inner Rumford Export (IRMF-E)",
         "Binde": "Oui! Au DAM, le 17 (86.86), 26 (6.15), 29 (71.77) septembre",
+        "Potentiel":"1.5/5",
         "Outage": ("Oui;"
             " 1) TAMWORTH 115 KV LINE B112-1: TAMWORTH (18-19 sept);"
             " 2) TAMWORTH 115 KV LINE B112-2: WHITE_LK (17-18 sept)"
@@ -700,6 +835,7 @@ data = [
         "CID_CES": 1069,
         "Nom": "Rumford IP Generation (RUMFIP)",
         "Binde": "Oui! Au DAM, le 25 (1.73) septembre",
+        "Potentiel":"/5",
         "Outage": ("Oui;"
             " 1) TAMWORTH 115 KV LINE B112-1: TAMWORTH (18-19 sept);"
             " 2) TAMWORTH 115 KV LINE B112-2: WHITE_LK (17-18 sept)"
@@ -709,6 +845,7 @@ data = [
         "CID_CES": 22102047,
         "Nom": "SOTHNGTN1771 A LN:1670",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
             " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
@@ -720,6 +857,7 @@ data = [
         "CID_CES": 611104,
         "Nom": "SOTHNGTN1771 A LN:ZB16",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
             " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
@@ -731,6 +869,7 @@ data = [
         "CID_CES": 611287,
         "Nom": "SOTHNGTN1771 A LN:310",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
             " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
@@ -742,6 +881,7 @@ data = [
         "CID_CES": 611326,
         "Nom": "SOTHNGTN1771 A LN:ZB68",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
             " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
@@ -753,6 +893,7 @@ data = [
         "CID_CES": 611337,
         "Nom": "SOTHNGTN1771 A LN:ZB69",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
             " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
@@ -764,6 +905,7 @@ data = [
         "CID_CES": 611248,
         "Nom": "SOTHNGTN1771 A LN:ZB17",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
             " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
@@ -775,6 +917,7 @@ data = [
         "CID_CES": 611284,
         "Nom": "SOTHNGTN1771 A LN:ZB37",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
             " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
@@ -786,6 +929,7 @@ data = [
         "CID_CES": 611324,
         "Nom": "SOTHNGTN1771 A LN:3424",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) SOTHNGTN 115 KV LINE 1800 (14-20 sept);"
             " 2) SOTHNGTN 115 KV LINE 1208: WALNGFRD (2-4 sept);"
@@ -797,6 +941,7 @@ data = [
         "CID_CES": 22102087,
         "Nom": "BERLIN 1670-2 A LN:1771",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) BERLIN 115 KV LINE 1670-2: RESVRD_J (1-20 sept);"
             " 2) BERLIN 115 KV LINE 1752: ROCKY_HL (21 sept au 25 oct);"
@@ -808,6 +953,7 @@ data = [
         "CID_CES": 611253,
         "Nom": "BERLIN 1670-2 A LN:ZB17",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) BERLIN 115 KV LINE 1670-2: RESVRD_J (1-20 sept);"
             " 2) BERLIN 115 KV LINE 1752: ROCKY_HL (21 sept au 25 oct);"
@@ -817,8 +963,9 @@ data = [
     },
     {
         "CID_CES": 611105,
-        "Nom": "BERLIN 1670-2 A LN:ZB16",
+        "Nom": "SOTHNGTN1670-1 A LN:ZB16",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) BERLIN 115 KV LINE 1670-2: RESVRD_J (1-20 sept);"
             " 2) BERLIN 115 KV LINE 1752: ROCKY_HL (21 sept au 25 oct);"
@@ -828,8 +975,9 @@ data = [
     },
     {
         "CID_CES": 4500017,
-        "Nom": "BERLIN 1670-2 A LN:ZB17",
+        "Nom": "RESVRD_J_1670-1_A_LN:ZB17",
         "Binde": "Non",
+        "Potentiel":"Ne pas shorter",
         "Outage": ("Oui;"
             " 1) BERLIN 115 KV LINE 1670-2: RESVRD_J (1-20 sept);"
             " 2) BERLIN 115 KV LINE 1752: ROCKY_HL (21 sept au 25 oct);"
@@ -841,18 +989,21 @@ data = [
         "CID_CES": 611316,
         "Nom": "MANCHSTR_1310_A_LN:ZB70",
         "Binde": "Non",
+        "Potentiel":"0.25/5",
         "Outage": "Oui, MANCHSTR 345 KV LINE 3557 (2-5 sept)",
     },
     {
         "CID_CES": 611102,
         "Nom": "MANCHSTR_1763_A_LN:ZB32",
         "Binde": "Non",
+        "Potentiel":"0.25/5",
         "Outage": "Oui, MANCHSTR 345 KV LINE 3557 (2-5 sept)",
     },
     {
         "CID_CES": 501152,
         "Nom": "WALTHAM_282-520-2_A_LN:ACTUAL",
         "Binde": "Non",
+        "Potentiel":"0.25/5",
         "Outage": "Oui, WATERTWN 115 KV LINE 282-521-1 (2 juin au 15 nov)",
     },
 ]

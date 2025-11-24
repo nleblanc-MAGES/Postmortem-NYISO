@@ -1,0 +1,898 @@
+---
+title: "Postmortem NEPOOL Novembre 2025"
+author: "Nicolas Leblanc"
+date: today
+toc: true
+jupyter: python3
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+
+- Application des prébis, accessible via l'url : https://bidanalysis.magitdev.com/.
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+from IPython.display import Image, display
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+conn=init_connection()
+```
+
+## 📈 Evolution de la load et du vents
+<!-- - La LoadMin est plus adapté au début du mois, le LoadMax l'est plus vers la fin du mois.
+- Au début (1-7 septembre) et à la fin du mois (22-30 septembre) la différence entre le daily et le monthly (8-21 septembre) est plus petit qu'au milieu du mois. -->
+- La génération totale est cyclique.
+
+```{python}
+# | code-fold: true
+market = 'NEPOOL'
+start_date = '2025-11-01'
+end_date = '2025-11-30'
+pool_id = 3
+df_Load=sq.get_Load([f'{market}_1DA_Default', f'{market}_1MA_Default', f'{market}_1MA_LoadMin',f'{market}_1MA_LoadMax']
+                  ,'2020-01-01'
+                  ,end_date
+                  ,conn
+                  )
+```
+
+- La génération de vent n'est pas cyclique.
+<!-- - Le monthly et le daily pour le vent sont similaieres au scénario WindMin au milieu du mois, mais ils diffèrent pour le reste du mois (11-20 septembre). -->
+
+```{python}
+# | code-fold: true
+df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_1MA_WindMin',f'{market}_1MA_WindMax']
+                  ,'2020-01-01'
+                  ,end_date
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL',start_date,end_date)
+gu.create_graph_wind(df_Wind,start_date,end_date)
+```
+
+## Métriques
+
+```{python}
+# | echo: false
+
+query = f"""
+SELECT *
+FROM TABLE(
+    MAGSNOWFLAKE.DAYZER.FN_METRICS_MONTHLY(
+        3,
+        ARRAY_CONSTRUCT('NEPOOL_1MA_AvgHistSP','NEPOOL_1MA_Default','NEPOOL_1MA_DL_AvgSP'),
+        DATE('2024-04-01'),
+        DATE('{end_date}'),
+        50
+    )
+)
+"""
+
+df_metriques = pd.read_sql(query, conn)
+
+metrics = [
+    "PCT_CAPTE_DU_SP_TOTAL_CUTOFF",
+    "PCT_FP_SUP_CUTOFF_DZR",
+    "AVG_ERR_ABS_TP"
+]
+
+scenarios = [
+    "NEPOOL_1MA_AvgHistSP",
+    "NEPOOL_1MA_Default",
+    "NEPOOL_1MA_DL_AvgSP"
+]
+
+df_metriques = df_metriques[df_metriques["SCENARIONAME"].isin(scenarios)]
+
+
+```
+
+### PCT_CAPTE_DU_SP_TOTAL_CUTOFF
+
+- Pourcentage du SP capté par scénario (CUTOFF 50$): uniquement pour les contraintes captées par Dayzer et qui ont bindé dans le marché, par rapport au SP total du marché
+- 100*SUM(ABS(SP_MKT) uniquement celle captées par Dayzer et dont le SP_DZR est supérieur au CutOff)/SUM(ABS(SP_MKT de toutes les contraintes) )
+
+```{python}
+# | echo: false
+
+metric = "PCT_CAPTE_DU_SP_TOTAL_CUTOFF"
+
+plt.figure(figsize=(12, 6))
+
+for scenario in scenarios:
+    temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+plt.title(metric)
+plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+plt.legend()
+plt.grid(True)
+ax = plt.gca()
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+plt.xticks(rotation=45)
+plt.show()
+    
+```
+
+### PCT_FP_SUP_CUTOFF_DZR
+
+- Pourcentage des faux positifs: Nombre des contraintes qui bindent dans Dayzer et qui ne bindent pas dans le marché, divisé par le nombre total de contrainte qui bindent dans Dayzer avec ABS(SP_DZR) >= CutOff (=50$)
+
+```{python}
+# | echo: false
+
+metric = "PCT_FP_SUP_CUTOFF_DZR"
+
+plt.figure(figsize=(12, 6))
+
+for scenario in scenarios:
+    temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+plt.title(metric)
+plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+plt.legend()
+plt.grid(True)
+ax = plt.gca()
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+plt.xticks(rotation=45)
+plt.show()
+    
+```
+
+### AVG_ERR_ABS_TP
+
+- Moyenne des erreurs absolues pour les vrais positifs: AVG(ABS(ABS(SP_MKT)-ABS(SP_DZR)))
+
+```{python}
+# | echo: false
+
+metric = "AVG_ERR_ABS_TP"
+
+plt.figure(figsize=(12, 6))
+
+for scenario in scenarios:
+    temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+plt.title(metric)
+plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+plt.legend()
+plt.grid(True)
+ax = plt.gca()
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+plt.xticks(rotation=45)
+plt.show()
+    
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+#| code-fold: true
+
+df_PM=sq.get_PostMortem(pool_id
+                        ,start_date
+                        ,end_date
+                        ,[f'{market}_1MA_Default', f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgSP',
+                        f'{market}_1DA_Default', f'{market}_1DA_AvgHistSP', f'{market}_1DA_DL_AvgSP',]
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+
+
+```
+
+### Statistiques scénarios Monthly:
+- 1MA_Default: /8
+- 1MA_AvgHistSP: 7/8
+- 1MA_DL_AvgSP: /8
+- La combinaison capte: /8
+
+### Statistiques scénarios Daily:
+- 1DA_Default: /8
+- 1DA_AvgHistSP: /8
+- 1DA_DL_AvgSP: /8
+- La combinaison capte: /8
+
+### Comparaison avec les top contraintes de Yes
+```{python}
+# | echo: false
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\TopContraintesDansYesNov2025.png"))
+```
+
+## 🕵️ Analyses des contraintes
+```{python}
+# | echo: false
+
+# paramètres généraux
+ftrstartdate=start_date
+ftrenddate=end_date
+histostartdate=start_date
+histoenddate=end_date
+scenario_flows=[f'{market}_1MA_Default',f'{market}_1DA_Default',f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgtSP' ]
+scenario_first_priority=f'{market}_1DA_Default'
+scenario_sf=[f'{market}_1MA_Default',f'{market}_1DA_Default']
+scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
+                    f'{market}_1MA_AvgHistSP',
+                    f'{market}_1MA_DL_AvgtSP'
+                    ]
+```
+
+
+<details>
+  <summary> BURG </summary>
+
+**Infos :**
+
+- CID_MAG: 30002892
+- CID_CES: 1080
+- CES_NAME = 'BURG'
+- CONTINGENCYNAME: INTERFACE
+- La contrainte a bindé tous les jours au RT du 4-21 novembre.
+- Elle a bindé tous les jours au DAM du 6-21 novembre.
+
+**Analyse :**
+
+- Il n'est pas clair pourquoi la contrainte binde, mais il se peut que 2087 Burgess BioPower ait eu un effet.
+- L'outage de ligne suivant est dans le coin. Il était présent dans les monthlys et les dailys.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "BERLN_NH 115 KV LINE S136: WHITEFLD",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/09/2025 04:49",
+"End": "11/26/2025 ...",
+"Planned Start": "11/09/2025 04:30",
+"Planned End": "11/26/2025 19:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "WHITEFLD 115 KV BRKR S1360",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/09/2025 04:49",
+"End": "11/26/2025 ...",
+"Planned Start": "11/09/2025 04:30",
+"Planned End": "11/26/2025 19:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "WHITEFLD 115 KV BRKR 03601/03",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/09/2025 04:49",
+"End": "11/26/2025 ...",
+"Planned Start": "11/09/2025 04:30",
+"Planned End": "11/26/2025 19:00",
+}
+]
+
+df = pd.DataFrame(data)
+display(df)
+```
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002892,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary> IRFM-E </summary>
+
+**Infos :**
+
+- CID_MAG: 30002873
+- CID_CES: 1059
+- CES_NAME = 'Inner Rumford Export (IRMF-E)'
+- CONTINGENCYNAME: INTERFACE
+- Elle a bindé en RT du 14-16 (1.66, 1639.34, 798.09) et du 19-21 (240.89, 60.01, 320.90) novembre.
+- Elle a bindé au DAM le 1 nov (134.68), 15-16 (667.34, 721.06), 19 (198.06) et 21 (170.35).
+
+**Analyse :**
+<!-- ![Description of image](Postmortem-NYISO\\PostMortem-NYISO-Quarto\\Septembre 2025 NEPOOL\\SHEF_3Sept.png) -->
+
+- La contrainte semble binder à cause de la génération non renouvelable (1970 RUMFORD POWER), d'hydro (52108 RUMFORD FALLS) et du vent (20350 Rox Wind).
+- L'outage suivant a peut-être eu un impact. Il n'est pas présent dans les dailys ni les monthlys.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "RAYMOND 115 KV LINE 209: RAYMOND",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/12/2025 14:08",
+"End": "11/22/2025 ...",
+"Planned Start": "11/12/2025 07:00",
+"Planned End": "10/22/2025 15:00",
+}
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+```
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002873,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+
+<details>
+  <summary> WYMAN_HY215ALN </summary>
+
+**Infos :**
+
+- CID_MAG: 30002480		
+- CID_CES: 501212
+- CES_NAME = 'WYMAN_HY_215_A_LN:ACTUAL'
+- CONTINGENCYNAME: ACTUAL
+- Elle a bindé en RT le 3 novembre (11.07).
+- Elle a bindé au DAM le 3 (703.33) et 4 (937.34) novembre.
+
+**Analyse :**
+
+- La contrainte semble avoir bindé à cause de 
+- Il a l'outage suivant dans le coin, mais il ne semble pas affecter la contrainte:
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "WYMAN_HY 115 KV BRKR K288-1",
+"Type": "BRKR",
+"KV": 115,
+"Start": "11/05/2025 06:48",
+"End": "11/05/2025 17:08",
+"Planned Start": "11/05/2025 13:00",
+"Planned End": "11/05/2025 16:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "WYMAN_HY 115 KV BRKR K215-1: 215",
+"Type": "BRKR",
+"KV": 115,
+"Start": "11/03/2025 06:36",
+"End": "11/04/2025 08:53",
+"Planned Start": "11/03/2025 07:00",
+"Planned End": "11/05/2025 12:00",
+},	
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+
+# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\ORRINGTN249ALN_20OctAu23Oct.png"))
+```
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002862,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+</details> 
+
+
+<details>
+  <summary> KR-EXP </summary>
+
+**Infos :**
+
+- CID_MAG: 30002862
+- CID_CES: 1047
+<!-- - MKUNITCID: 25583_1044 -->
+- CES_NAME = 'KEENE ROAD EXPORT INTERFACE (KR-EXP)'
+- CONTINGENCYNAME: INTERFACE
+- Elle a bindé en RT le 1 (1077.97) et du 4-6 november (1032.46, 14.59, 76.01).
+- Elle a bindé au DAM du 1-4 (297.86, 13.71, 198.15, 321.77), le 6 (618.55), 7 (5.89) et du 17-18 (145.11, 30.07).
+
+**Analyse :**
+
+- La contrainte semble avoir bindé à cause de la génération de vent (ROLLINS WIND PLANT, STETSON WIND FARM, et STETSON II WIND FARM) et d'hydro (Greatlakes Millinocket Hydro).
+- Il a l'outage suivant dans le coin, mais il ne semble pas affecter la contrainte:
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "GRAHAM 115 KV LINE 97BHE",
+"Type": "LINE",
+"KV": 115,
+"Start": "10/27/2025 07:43",
+"End": "10/30/2025 14:08",
+"Planned Start": "10/27/2025 06:00",
+"Planned End": "10/31/2025 18:00",
+},	
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+
+# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\ORRINGTN249ALN_20OctAu23Oct.png"))
+```
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002862,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+</details> 
+
+<details>
+  <summary> KCW </summary>
+
+**Infos :**
+
+- CID_MAG: 30002880
+- CID_CES: 1066
+<!-- - MKUNITCID: 25583_1044 -->
+- CES_NAME = 'Kingdom Wind Generation (KCW)'
+- CONTINGENCYNAME: INTERFACE
+- Elle a surtout bindé en RT du 3-4 (104.45, 782.04) et du 5-9 (3.26, 22.08, 48.01, 89.01) novembre.
+- Elle a bindé au DAM du 3-4 (236.97, 467.16) et du 6-7 (362.00, 236.96) novembre.
+
+**Analyse :**
+
+- Il n'est pas clair pourquoi la contrainte binde le 9 octobre. Peut-être la génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde.
+- Du 4 au 5 novembre, il avait les outages suivants dans le coin. KCW est une contrainte qui est connue pour binder à cause d'outages.
+
+Ceux-ci ne semblent pas impacter la contrainte. Le K42S-1, K42-2, K42SA et K42-3 étaient absents des monthlys. Ils étaient tous présents dans les 1DA_Default.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "CONVERTR 115 KV BRKR N_B1_1",
+"Type": "BRKR",
+"KV": 115,
+"Start": "11/04/2025 22:36",
+"End": "11/05/2025 02:53",
+"Planned Start": "11/04/2025 22:36",
+"Planned End": "11/05/2025 23:59",
+},
+{
+"Source": "NEISO",
+"Equipment": "CONVERTR 120 KV LINE 1429: CONVERTR",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/04/2025 22:36",
+"End": "11/05/2025 02:53",
+"Planned Start": "11/04/2025 22:36",
+"Planned End": "11/05/2025 23:59",
+},
+{
+"Source": "NEISO",
+"Equipment": "CONVERTR 115 KV BRKR N_B1_2",
+"Type": "BRKR",
+"KV": 115,
+"Start": "11/04/2025 22:36",
+"End": "11/05/2025 02:53",
+"Planned Start": "11/04/2025 22:36",
+"Planned End": "11/05/2025 23:59",
+},
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\KCW_9Oct.png"))
+```
+
+
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002880,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+
+<details>
+  <summary> STRA </summary>
+
+**Infos :**
+
+- CID_MAG: 30002928
+- CID_CES: 1120
+- CES_NAME = 'Reenergy Stratton Generation (STRA)'
+- CONTINGENCYNAME: INTERFACE
+- Il manquait le mapping entre la contrainte dans Dayzer et dans Yes, donc on l'a ajouté.
+- La contrainte a bindé au DAM en septembre pour 56.40$. En octobre, elle a bindé pour 889.52$ en RT et 1225.63$ au DAM. En novembre, elle a bindé au DAM le 5 (-131.9), 6 (-171), 7 (-107.03), 13 (-87.5 et -462.60).
+
+
+**Analyse :**
+
+- La contrainte semble binder à cause de la production non renouvelable (REENERGY STRATTON).
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002928,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+
+<details>
+  <summary> BUNKR_HL1029-2ALN  </summary>
+
+**Infos :**
+
+- CID_MAG: 300001083
+- CID_CES: 611255
+- CES_NAME = 'BUNKR_HL_1029-2_A_LN:1789'
+- CONTINGENCYNAME: 1709
+- Elle a bindé en RT le 19 (-94.22), 21 (-69.25), 22 (-1318.97), 24 (-420.98), ... et ... novembre.
+- Elle a bindé au DAM le 20 (-28.41), 21 (-196.04), 23 (-298.57), 24 (-188.31), ... et ... novembre.
+
+
+**Analyse :**
+
+- 
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      300001083,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
+  <summary> GRAHAM66BHEALN </summary>
+
+**Infos :**
+
+- CID_MAG: 30000052
+- CID_CES: 610094
+- CES_NAME = 'GRAHAM_66BHE_A_LN:205'
+- CONTINGENCYNAME: 205
+- Elle a bindé en RT le 1 (-8.53), 4 (-77.79), 6 (-74.37), 18 (-30.43), ... (-...) et ... (-...).
+- Elle a bindé au DAM le 1 (-166.03), 4 (-30.96), 6 (-29.04), 18 (-6.76), ... (-...) et ... (-...).
+
+
+**Analyse :**
+
+- La contrainte semble binder à cause de la génération de vent (15673 Downeast Wind, 18033 Weaver Wind Maine, 18026 Hancock Wind ME).
+<!-- - La contrainte est en contact avec le Nouveau-Brunswick. Généralement, le Maine importe de l'électricité du NB, mais dans ce cas s'était l'inverse. Cette importation était à cause de l'outage de maintenance du Point Lepreau Nuclear Generating Station de la centrale nucléair prévu durer pour 140 jours (mi-juillet à décembre): https://www.919thebend.ca/2025/07/13/point-lepreau-begins-140-day-outage-on-monday/# -->
+
+- Il a ces outages de lignes et de transformateurs dans le coin, en plus de plusieurs outages de breakers:
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "ORRINGTN 13 KV XFMR F",
+"Type": "XFMR",
+"KV": 13,
+"Start": "11/17/2025 10:07",
+"End": "11/20/2025 15:38",
+"Planned Start": "11/17/2025 08:00",
+"Planned End": "11/21/2025 15:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "ORRINGTN 115 KV XFMR E",
+"Type": "XFMR",
+"KV": 13,
+"Start": "11/17/2025 10:07",
+"End": "11/20/2025 15:38",
+"Planned Start": "11/17/2025 08:00",
+"Planned End": "11/21/2025 15:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "ORRINGTN 345 KV XFMR D",
+"Type": "XFMR",
+"KV": 13,
+"Start": "11/17/2025 10:07",
+"End": "11/20/2025 15:38",
+"Planned Start": "11/17/2025 08:00",
+"Planned End": "11/21/2025 15:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "ORRINGTN 345 KV LINE 3023_SC",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/17/2025 08:51",
+"End": "11/22/2025 15:53",
+"Planned Start": "11/17/2025 08:00",
+"Planned End": "11/21/2025 16:00",
+},
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+
+# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\KCW_9Oct.png"))
+```
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30000052,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+
+
+## 𝄜 Retour sur les contraintes du pré-bid
+```{python}
+# | echo: false
+
+data = [
+    {
+        "CID_CES": 611255,
+        "Nom": "BUNKR_HL_1029-2_A_LN:1789",
+        "Binde": "",
+        "Potentiel":"1/5",
+        "Outage": ("Oui;"
+              " 1) Ligne: STEVENSN 115 KV LINE 1232, Du 6 au 13 nov (Interim Approved);"
+              " 2) Ligne: BEACN_FL 115 KV LINE 1319, du 27 oct au 26 nov (Interim Approved);"
+              " 3) Ligne: S_NAUGTK 115 KV LINE 1142, du 19 oct au 26 novembre (Interim Approved);"
+              " A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+        ),
+    },
+    {
+        "CID_CES": 1113,
+        "Nom": "Down East Export (DNEAST)",
+        "Binde": "",
+        "Potentiel":"2.5/5",
+        "Outage": "",
+    },
+    {
+        "CID_CES": 1132,
+        "Nom": "Down East Wind Generation (DNEW)",
+        "Binde": "",
+        "Potentiel":"2.5/5",
+        "Outage": "",
+    },
+    {
+        "CID_CES": 611264,
+        "Nom": "EPPING_T_59BHE-2_A_LN:51BHE",
+        "Binde": "",
+        "Potentiel":"2.5/5",
+        "Outage": "",
+    },
+    {
+        "CID_CES": 501174,
+        "Nom": "FRSTBRDG_1445_A_LN:1340",
+        "Binde": "",
+        "Potentiel":"1/5",
+        "Outage": "",
+    },
+    {
+        "CID_CES": 610094,
+        "Nom": "GRAHAM_66BHE_A_LN:205",
+        "Binde": "",
+        "Potentiel":"2.5/5",
+        "Outage": "",
+    },
+    {
+        "CID_CES": 22000048,
+        "Nom": "NORWALKH_602_A_LN:ACTUAL",
+        "Binde": "",
+        "Potentiel":"0.5/5",
+        "Outage": ("Oui;"
+              " 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
+              " A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+        ),
+    },
+    {
+        "CID_CES": 22000047,
+        "Nom": "NORWALKH_603_A_LN:ACTUAL",
+        "Binde": "",
+        "Potentiel":"0.5/5",
+        "Outage": ("Oui;"
+              " 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
+              " A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+        ),
+    },
+    {
+        "CID_CES": 501284,
+        "Nom": "SALISBRY_690/FV_A_LN:ACTUAL",
+        "Binde": "",
+        "Potentiel":"2/5",
+        "Outage": ("Oui;"
+              " 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
+              " A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+        ),
+    },
+    {
+        "CID_CES": 1055,
+        "Nom": "WHITEFIELD SOUTH & GRPW (WTS+GR)",
+        "Binde": "",
+        "Potentiel":"1/5",
+        "Outage": "LITTLETN 115 KV LINE U199, du 27 oct au 8 nov (Interim Approved)",
+    },
+    {
+        "CID_CES": 1080,
+        "Nom": "Burgess Generation (BURG)",
+        "Binde": "",
+        "Potentiel":"3/5",
+        "Outage": "BERLN_NH 115 KV LINE S136: WHITEFLD, du 9 au 26 nov (Interim Approved)"
+    }
+]
+
+df = pd.DataFrame(data)
+# df
+
+from itables import show
+import itables.options as opt
+
+opt.maxBytes = 0  # allow long cells
+opt.lengthMenu = [10, 25, 50, 100]
+
+show(df)
+
+```
+</details>
+
+
+ 
+
+
