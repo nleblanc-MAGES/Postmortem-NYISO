@@ -229,7 +229,7 @@ show(df_PM,
 
 ### Statistiques scénarios Monthly:
 - 1MA_Default: /8
-- 1MA_AvgHistSP: 7/8
+- 1MA_AvgHistSP: /8
 - 1MA_DL_AvgSP: /8
 - La combinaison capte: /8
 
@@ -242,7 +242,7 @@ show(df_PM,
 ### Comparaison avec les top contraintes de Yes
 ```{python}
 # | echo: false
-display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\TopContraintesDansYesNov2025.png"))
+# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\TopContraintesDansYesNov2025.png"))
 ```
 
 ## 🕵️ Analyses des contraintes
@@ -278,8 +278,7 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 
 **Analyse :**
 
-- Il n'est pas clair pourquoi la contrainte binde, mais il se peut que 2087 Burgess BioPower ait eu un effet.
-- L'outage de ligne suivant est dans le coin. Il était présent dans les monthlys et les dailys.
+- Il n'est pas clair dans dayzer pourquoi la contrainte binde, mais c'est probablement dû à la génération du 2087 Burgess BioPower et l'outage de ligne suivant dans le coin aient eu un effet. L'outage était présent dans les monthlys et les dailys.
 
 ```{python}
 # | echo: false
@@ -412,8 +411,8 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
-- La contrainte semble avoir bindé à cause de 
-- Il a l'outage suivant dans le coin, mais il ne semble pas affecter la contrainte:
+<!-- - La contrainte semble avoir bindé à cause de  -->
+- On ne voit pas l'impact dans dayzer, mais il a l'outage suivant dans le coin:
 
 ```{python}
 # | echo: false
@@ -542,10 +541,10 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
-- Il n'est pas clair pourquoi la contrainte binde le 9 octobre. Peut-être la génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde.
+<!-- - La génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde. -->
 - Du 4 au 5 novembre, il avait les outages suivants dans le coin. KCW est une contrainte qui est connue pour binder à cause d'outages.
 
-Ceux-ci ne semblent pas impacter la contrainte. Le K42S-1, K42-2, K42SA et K42-3 étaient absents des monthlys. Ils étaient tous présents dans les 1DA_Default.
+<!-- Ceux-ci ne semblent pas impacter la contrainte. Le K42S-1, K42-2, K42SA et K42-3 étaient absents des monthlys. Ils étaient tous présents dans les 1DA_Default. -->
 
 ```{python}
 # | echo: false
@@ -586,7 +585,7 @@ df = pd.DataFrame(data)
 display(df)
 
 
-display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\KCW_9Oct.png"))
+# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\KCW_9Oct.png"))
 ```
 
 
@@ -664,7 +663,57 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
-- 
+- Dans les prébids, les outages suivants
+
+<!-- STEVENSN -> SANDY_HK (Id: 2341, Voltage (kV): 115, eqkey: 1232, Start Date 11-7-2025, Start Hour: 13, End Date: 11-13-2025, End Hour: 16)
+
+BEACN_FL -> OXFORD (Id: 2326, Voltage (kV): 115, eqkey: 1319, start date 10-27-2025, start hour: 21, End Date: 11-26-2025, End Hour: 18)
+
+S_NAUGTK -> TOWANTIC (Id: 2322, Voltage (kV): 115, eqkey: 1142, start date 11-7-2025, start hour: 13, End Date: 11-26-2025, End Hour: 20) -->
+
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "STEVENSN 115 KV LINE 1232",
+"Type": "Line",
+"KV": 115,
+"Start": "11/07/2025 08:21",
+"End": "11/13/2025 18:23",
+"Planned Start": "11/07/2025 08:00",
+"Planned End": "11/13/2025 15:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "BEACN_FL 115 KV LINE 1319",
+"Type": "LINE",
+"KV": 115,
+"Start": "10/27/2025 22:36",
+"End": "11/26/2025 ...",
+"Planned Start": "10/27/2025 20:30",
+"Planned End": "11/26/2025 17:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "S_NAUGTK 115 KV LINE 1142",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/07/2025 11:25",
+"End": "11/26/2025 ...",
+"Planned Start": "11/07/2025 12:00",
+"Planned End": "11/26/2025 19:00",
+},
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+
+# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\KCW_9Oct.png"))
+```
+
 
 ```{python}
 # | echo: false

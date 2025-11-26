@@ -192,9 +192,9 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 
 **Analyse :**
 
-- Dans le modèle 1DA_Default, la contrainte semble avoir bindé à cause de la source de génération non renouvelable provenant de sources telles que SCS Astoria Energy 2.
+- Dans le scénario 1DA_Default, la contrainte semble avoir bindé à cause de la source de génération non renouvelable provenant de sources telles que SCS Astoria Energy 2.
 - Pour le scénario 1MA_DL_AvgSP, elle bindait parfois à cause de la production non renouvelable.
-- Dans les modèles 1MA_Default et 1MA_DL_AvgSP, la contrainte bindait parfois, mais pour très peu, et elle binde à cause des virtual imports et exports (loopflows).
+- Dans les scénarios 1MA_Default et 1MA_DL_AvgSP, la contrainte bindait parfois, mais pour très peu, et elle binde à cause des virtual imports et exports (loopflows).
 
 ```{python}
 # | echo: false
@@ -232,30 +232,8 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
-- Pour la contrainte avec CID_MAG: 10000422 et CID_CES: 309877
-- L’outage CLAY 345 KV -> INDPDNCE 345 KV (25858). Elle est en outage du 15 septembre au 6 octobre selon le 1DA dans Dayzer, le 1MA_Default de Dayzer pensait qu’elle allait commencer le 22 septembre. Cet outage redirige 9-11% de ses flows sur la contrainte du sûrement au fait que l'outage empêche la transmission de la production de la génératrice Sithe Independent Station. La contrainte elle-même est tombée en outage du 16-18 septembre, elle aurait sûrement continué de binder sinon. 
-- Pour le 1DA_Default et le 1MA_Default, Dayzer ne prédit pas que la contrainte devrait binder.
-- Pour les scénarios 1DA_DL_AvgSP et 1MA_DL_AvgSP: La contrainte semble binder à cause de la production non renouvelable et de la load.
-
-```{python}
-# | echo: false
-
-cu.get_all_cstr_data(pool_id,
-                      10000422,
-                      ftrstartdate,
-                      ftrenddate,
-                      histostartdate,
-                      histoenddate,
-                      scenario_flows,
-                      scenario_first_priority,
-                      scenario_sf,
-                      scenario_histo_sp,
-                      conn
-                      )
-
-```
-
-- Pour la contrainte avec CID_MAG: 10000210 et CID_CES: 301117
+- L’outage CLAY 345 KV -> INDPDNCE 345 KV (25858). Elle est en outage du 15 septembre au 6 octobre selon le 1DA dans Dayzer, le 1MA_Default de Dayzer pensait qu’elle allait commencer le 22 septembre. Cet outage redirige 9-11% de ses flows sur la contrainte du sûrement au fait que l'outage empêche la transmission de la production de la génératrice Sithe Independent Station.
+- La contrainte elle-même est tombée en outage du 16-18 septembre, elle aurait sûrement continué de binder sinon.
 - La contrainte est affectée par le même outage. L’outage redigire 17.1-20.5% de ses flows vers la contrainte. À l’inverse la contrainte de ci-dessus, les flows montrent clairement que la contrainte binde surtout à cause de la génération non renouvelable et de la load pour les scénarios 1DA_DL_AvgSP et 1MA_DL_AvgSP.
 
 ```{python}
@@ -330,8 +308,8 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
-- En se basant sur le modèle 1DA_Default, la contrainte a possiblement bindé à cause de la load provenant de source comme 71201 NY Capital et de la production non renouvelable.
-- Le modèle 1DA_DL_AvgSP prédit que la contrainte va binder majoritairement à cause de la load, des imports/exports et de la génération non renouvelable (en ordre d'importance). La contrainte binde à cause du changement de limite faite par le scénario.
+- En se basant sur le scénario 1DA_Default, la contrainte a possiblement bindé à cause de la load provenant de source comme 71201 NY Capital et de la production non renouvelable.
+- Le scénario 1DA_DL_AvgSP prédit que la contrainte va binder majoritairement à cause de la load, des imports/exports et de la génération non renouvelable (en ordre d'importance). La contrainte binde à cause du changement de limite faite par le scénario.
 
 ```{python}
 # | echo: false
@@ -367,7 +345,7 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
-- Les modèles 1_MA_DL_AvgSP et 1DA_DL_AvgSP prédisent que la contrainte va binder majoritairement à cause du vent et de l'hydro.
+- Les scénarios 1_MA_DL_AvgSP et 1DA_DL_AvgSP prédisent que la contrainte va binder majoritairement à cause du vent et de l'hydro.
 
 ```{python}
 # | echo: false

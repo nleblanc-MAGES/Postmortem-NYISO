@@ -1,0 +1,372 @@
+---
+title: "Postmortem NYPP Novembre 2025"
+author: "Nicolas Leblanc"
+date: today
+toc: true
+jupyter: python3
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+
+- Application des prébis, accessible via l'url : https://bidanalysis.magitdev.com/.
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+from IPython.display import Image, display
+import pandas as pd
+conn=init_connection()
+```
+
+## 📈 Evolution de la load et du vents
+- le monthly estime généralement une load plus forte que le daily.
+- La génération totale est cyclique.
+
+```{python}
+#| code-fold: true
+
+market = 'NYPP'
+start_date = '2025-11-01'
+end_date = '2025-11-30'
+
+df_Load=sq.get_Load([f'{market}_1DA_Default', f'{market}_1MA_Default', f'{market}_1MA_LoadMin',f'{market}_1MA_LoadMax']
+                  ,'2020-01-01'
+                  ,end_date
+                  ,conn
+                  )
+```
+
+- La génération de vent n'est pas cyclique.
+<!-- - Le monthly et le daily pour le vent sont similaires -->
+
+```{python}
+#| code-fold: true
+df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_1MA_WindMin',f'{market}_1MA_WindMax']
+                  ,'2020-01-01'
+                  ,end_date
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL',start_date,end_date)
+gu.create_graph_wind(df_Wind,start_date,end_date)
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+#| code-fold: true
+
+df_PM=sq.get_PostMortem(1
+                        ,start_date
+                        ,end_date
+                        ,[f'{market}_1MA_Default', f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgSP',
+                        f'{market}_1DA_Default', f'{market}_1DA_AvgHistSP', f'{market}_1DA_DL_AvgSP',]
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+```
+
+**Contraintes en double :**
+
+- Il a des doublons dans des contraintes (même CONSTRAINT_NAME, CONTINGENCYNAME, et SP_DA), mais CID_MAG et CID_CES différents. Il a la contrainte  de nom et de contingence , puis contrainte de nom  et de contingence BASE CASE.
+
+```{python}
+# | echo: false
+data = [
+{
+"Constraint name": "STEWRTAV 138 VALLYSTR 138 1:SCB:NEWBRDG(1380)461&BK6+4&R1",
+"Contingency name": "SCB:NEWBRDG(1380)461&BK6+4&R1"
+},
+{
+"Constraint name": "STEWRTAV 138 VALLYSTR 138 1:BUS:BARRETT 292&459&G2",
+"Contingency name": "BUS:BARRETT 292&459&G2"
+},
+{
+"Constraint name": "E179THST 138 HELLGATE 138 1: BASE CASE",
+"Contingency name": "BASE CASE"
+},
+{
+"Constraint name": "E179THST 138 SHERMCRK 138 1: BASE CASE",
+"Contingency name": "BASE CASE"
+},
+# {
+# "Constraint name": "",
+# "Contingency name": ""
+# },
+]
+
+df = pd.DataFrame(data)
+display(df)
+```
+
+### Statistiques scénarios Monthly:
+- 1MA_Default: /5
+- 1MA_AvgHistSP: /5
+- 1MA_DL_AvgSP: /5
+- La combinaison capte: /5
+
+### Statistiques scénarios Daily:
+- 1DA_Default: /5
+- 1DA_AvgHistSP: /5
+- 1DA_DL_AvgSP: /5
+- La combinaison capte: /5
+
+### Comparaison avec les top contraintes de Yes
+```{python}
+# | echo: false
+# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NYISO\TopContraintesDansYesOct2025_NYISO.png"))
+```
+
+<!-- **Problèmes avec les SP de l'interface de Yes :**
+
+- Il a une différence entre le shadow price pour la contrainte de nom SCH - HQ CEDARS et de contingence BASE CASE dans la BD de Yes (-274.74$ pour Yes et -275$ dans les DA des simulations de Dayzer) et le site web de Yes (875.40$). Il semble donc avoir un bug avec l'interface de Yes. Une autre information super importante est que cette contrainte bind dans le positif et dans le négatif!
+- Il a le même problème avec la contrainte de nom N.TROY 115 SYCAWAY 115 1:BUS:ALPS 1 & 6 & 393 et de contingence BUS:ALPS 1 & 6 & 393. On a un SP de -2153.24$ dans la BD de Yes et un SP de -1254$ dans les simulations DA de Dayzer.
+- Même chose pour la contrainte de nom GOETHALS-GOWANUS 345KV 1 et de contingence	BASE CASE. On a un SP de 1965.23$ dans la BD de Yes et un SP de 1965$/1611$ (la contrainte est répétée…) dans les simulations DA de Dayzer. -->
+
+## 🕵️ Analyses des contraintes
+```{python}
+#| code-fold: true
+
+# paramètres généraux
+pool_id=1
+ftrstartdate=start_date
+ftrenddate=end_date
+histostartdate=start_date
+histoenddate=end_date
+scenario_flows=[f'{market}_1MA_Default',f'{market}_1DA_Default',f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgtSP' ]
+scenario_first_priority=f'{market}_1DA_Default'
+scenario_sf=[f'{market}_1MA_Default',f'{market}_1DA_Default']
+scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
+                    f'{market}_1MA_AvgHistSP',
+                    f'{market}_1MA_DL_AvgtSP'
+                    ]
+```
+
+<details>
+  <summary> STEWRTAV 138 VALLYSTR 138 1:SCB:NEWBRDG(1380)461&BK6+4&R1 </summary>
+
+**Infos :**
+
+- CID_MAG: 10000630 et 10001496
+- CID_CES: 310106 et 310104
+<!-- - CES_NAME = 'STEWRTAV 138 VALLYSTR 138 1:SCB:NEWBRDG(1380)461&BK6+4&R1' -->
+- CONTINGENCYNAME: SCB:NEWBRDG(1380)461&BK6+4&R1
+- En RT, la contrainte a bindé le 1er (11.31), du 14-22 novembre (max |SP| de 265.10 le 17) et ... ().
+- Au DAM, elle a bindé du 1-3 (66.42, 23.44, 950.38), 14 (335.43), 23 (353.77) novembre et ... ().
+
+**Analyse :**
+
+- 
+<!-- qui dure du 9 déc 2020 au 1 jan 2040, redirige beaucoup de flows sur la contrainte. -->
+- Il a les outages de ligne VALLYSTR-STEWRTAV 138 KV 261 du 14 au 22 novembre et STEWRTAV-NEWBRDGE 138KV 463 du 14 novembre ont sûrement eu un impact. Dans le scénario 1DA_Default, l'outage de ligne VALLEY STR 2 -> E. GARDEN CTY (ID 91331, eqkey 327260) du 14 novembre, qui semble être l'outage VALLYSTR-STEWRTAV 138 KV 261, redirige beaucoup de flows sur la contrainte.
+- Dans le marché, il a l'outage VALLYSTR-STEWRTAV 138 KV 262, qui a commencé le 22 novembre. Dans le scénario 1DA_Default, l'outage de ligne VALLEY STR 2 -> E. GARDEN CTY (ID 91331, eqkey 327260) du 15-30 novembre, qui semble être l'outage VALLYSTR-STEWRTAV 138 KV 261, redirige beaucoup de flows sur la contrainte.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10000630,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary> NEWBRDGE 138 STEWRTAV 138 2: BASE CASE
+
+**Infos :**
+
+- CID_MAG: 10001928
+- CID_CES: 201013 
+<!-- - CES_NAME = 'NEWBRDGE 138 STEWRTAV 138 2: BASE CASE' -->
+- CONTINGENCYNAME: BASE CASE
+- En RT, la contrainte a bindé 1-2 (1282.29, 147.18), 6 (234.22), 14 (314.01), ...
+- Au DAM, elle contrainte a bindé 1-3 (102.52, 68.78, 550.74), 6-7 (74.90, 44.65), ...
+
+**Analyse :**
+
+- L’outage de ligne EGRDNCTYT 138 KV -> NEWBRDGE 138 KV (25304) du 3 novembre redirige beaucoup de flows sur la contrainte.
+- L’outage de ligne EGRDNCTYT 138 KV -> NEWBRDGE 138 KV (25304) du 14 novembre redirige beaucoup de flows sur la contrainte, ce qui pourrait expliquer le bind de la contrainte ce jours-là au RT.
+- Dans le coin, il a aussi les outages de ligne VALLYSTR-STEWRTAV 138 KV 261, qui dure du 9 octobre au 3 novembre, et STEWRTAV-ROSLYN 138KV 362 et STEWRTAV-ROSLYN 138KV 363, qui durent du 30 octobre au 1 novembre. Ceux-ci semblent absents de dayzer.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001928,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>GOETHALS 345 LINDN_CG 345 1: BASE CASE</summary>
+
+**Infos :**
+
+- CID_MAG: 10002058
+- CID_CES: 311143 
+<!-- - CES_NAME = 'GOETHALS 345 LINDN_CG 345 1: BASE CASE' -->
+- CONTINGENCYNAME: BASE CASE
+- En RT, la contrainte a bindé 1-3 (108.20, 123.82, 11.31), 11-15 (0.44, 26.60, 81.20, 442.26, 248.80), et ... ().
+- Au DAM, elle a bindé du 1-3 (50.93, 49.20, 0.82), 6 (5.03), 13-15 (118.74, 252.53, 219.72), et ... ().
+
+**Analyse :**
+
+- Dans le scénario 1DA, la ligne associée à la contrainte était en outage du 29 octobre au 5 novembre. Ceci ne semble pas avoir été le cas en réalité, ce qui explique pourquoi dayzer n'a pas capté le binde de la contrainte.
+- L'outage de ligne GOETHALS 345 KV -> LIND_CG 345 KV (325203, de nom GOETHALS-LINDN_CG 345 KV G23L dans le marché), qui dure du 29 octobre au 6 novembre, semble avoir eu un effet sur le binding de la contrainte en début de mois.
+- L'outage GOETHALS-LINDN_CG 345 KV G23M dans le marché, qui dure du 6 au 15 novembre, pourrait expliquer le binding de la contraine en milieu de mois. Dans dayzer, elle semble encore s'appeller GOETHALS 345 KV -> LIND_CG 345 KV (325203).
+- La forte production non renouvelable (1599 Linden Cogen_23786 3, 715 Linden Cogen_23786 1 et 1490 Linden Cogen_23786 2) semble avoir contribué à ce que la contrainte binde fortement le 15 novembre.
+
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10002058,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>CENTRAL EAST - VC: BASE CASE</summary>
+
+**Infos :**
+
+- CID_MAG: 10002236
+- CID_CES: 20014
+<!-- - CES_NAME = 'CENTRAL EAST - VC: BASE CASE' -->
+- CONTINGENCYNAME: BASE CASE
+- En RT, la contrainte a bindé du 20-21 (19.91, 146.55), 23-25 (86.47, 17.17, ...) et ... () novembre.
+- Au DAM, elle a bindé le 3 (12.95), du 20-21 (6.23, 31.02), 23-25 (353.58, 44.28, ...) et ... () novembre.
+
+**Analyse :**
+
+- 
+
+
+Source	Equipment	Type	KV	Start	End	Planned Start	Planned End
+NYISO	CHATGUAY-MASSENA 765KV 7040	LINE	765	11/16/2025 00:22:00			au 30 nov dans dayzer
+Source	Equipment	Type	KV	Start	End	Planned Start	Planned End
+NYISO	MASSENA-MARCY 765KV MSU1	LINE	765	11/19/2025 00:39:00			au 26 nov dans dayzer
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10002236,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+
+<details>
+  <summary>LAKSUCSS 138 SHORE_RD 138 1: BASE CASE</summary>
+
+**Infos :**
+
+- CID_MAG: 10001984
+- CID_CES: 201163
+- CES_NAME = 'LAKSUCSS 138 SHORE_RD 138 1: BASE CASE'
+- CONTINGENCYNAME: BASE CASE
+- En RT, la contrainte a bindé tous les jours (jusqu'à maintenant le 25 nov) sauf le 2, 6 et du 17-20 novembre. Elle binde surtout le 11 (4897.24) et 12 (1407.99).
+- Au DAM, elle a bindé du 11-14, le 16, du 22-25 et ... () novembre. Elle a surtout bindé le 14 (102.65) et 23 (215.33).
+
+**Analyse :**
+
+- L'outage de ligne LAKSUCSS 138 KV -> SHORE_RD 138 KV (25145, SHORE_RD-LAKSUCSS 138 KV 367 dans le marché), qui dure du 21 septembre au 30 novembre ajoute de la pression sur la contrainte.
+- Dans le scénario 1DA, la contrainte ne binde pas, mais la load a un fort impact. La combinaison de la laod et de l'outage pourrait expliquer le binde de la contrainte.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001984,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+

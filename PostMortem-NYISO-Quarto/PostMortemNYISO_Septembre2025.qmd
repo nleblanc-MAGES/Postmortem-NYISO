@@ -160,13 +160,15 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 - CID_CES: 311274
 - CES_NAME = 'GRASRIVR 115 MOSES    115 1 SIN:MOSES-ALCOA_PA_115_MAL6&C6_25583'
 - CONTINGENCYNAME: SIN:MOSES-ALCOA_PA_115_MAL6&C6
-- En RT, elle a bindé quand même souvent et pour beaucoup (9: 2224.20, 10: 778.42, 11: 2012.11, 15: 4825.64, 16: 1447.01, 17: 1033.47, 22: 2991.88, 23: 51.20, 25: 100.27)
-- Au DAM, la contrainte a bindé du 9 au 29 septembre pour une valeur allant de 0.57 (28 sept) à 100.66 (13 sept)
+- En RT, elle a bindé quand même souvent et pour beaucoup (9: -2224.20, 10: -778.42, 11: -2012.11, 15: -4825.64, 16: -1447.01, 17: -1033.47, 22: -2991.88, 23: -51.20, et 25: -100.27) pendant le mois de septembre 2025.
+- Au DAM, la contrainte a bindé du 9 au 29 septembre pour une valeur allant de 0.57 (28 sept) à 100.66 (13 sept).
 
 **Analyse :**
 
-- Le modèle 1MA Dayzer prévoyait que la contrainte allait être en outage du 9 septembre jusqu’à la fin du mois. Le modèle 1DA de Dayzer prévoyait qu'elle était en outage du 9 au 19 septembre seulement. Il avait un problème dans Dayzer (voir courriel de François).
-- L’outage de ligne MOSES 115 KV -> ALCOA_N 115 KV (25582) que Dayzer prévoyait qu’elle allait être en outage du 9 septembre au 17 novembre 2025 dans le 1MA (Id: 5073) et du 19 octobre dans le 1DA (Id: 5074). Cet outage met 19.4-24.7% de redirected flow sur la contrainte, ce qui est significatif et semble être la cause principale de l’outage. Ceci peut aussi être vu par les dependent LODF dans Dayzer qui tournent autour de 0.8592. L’outage est connu comme 5074 MOS 115     ~115KV-GR-TAP2     ~115KV-2 dans le F5 de la contrainte du 1DA dans Dayzer.
+- Le scénario 1MA Dayzer prévoyait que la contrainte allait être en outage du 9 septembre jusqu’à la fin du mois. Le scénario 1DA de Dayzer prévoyait qu'elle était en outage du 9 au 19 septembre seulement. Il avait un problème dans Dayzer (voir courriel de François le 15 septembre).
+- L’outage de ligne MOSES 115 KV -> ALCOA_N 115 KV (25582) que Dayzer prévoyait qu’elle allait être en outage du 9 septembre au 17 novembre 2025 dans le 1MA (Id: 5073) et jusqu'au 19 octobre dans le 1DA (Id: 5073). Cet outage met 19.4-24.7% de redirected flow sur la contrainte, ce qui est quand même significatif et semble être la cause principale de l’outage. Cet outage était prévu dans les monthlys et dailys de dayzer.
+<!-- Ceci peut aussi être vu par les dependent LODF dans Dayzer qui tournent autour de 0.8592.  -->
+<!-- L’outage est connu comme 5074 MOS 115     ~115KV-GR-TAP2     ~115KV-2 dans le F5 de la contrainte du 1DA dans Dayzer. -->
 
 ```{python}
 # | echo: false
@@ -193,8 +195,10 @@ cu.get_all_cstr_data(pool_id,
 
 **Infos :**
 
-- CID_MAG: 10000422 et 10000210
-- CID_CES: 309877 et 301117
+- CID_MAG: 10000210
+<!-- et 10000422 -->
+- CID_CES: 301117
+<!-- et 309877 -->
 - CES_NAME = 'SCRIBA 345 VOLNEY 345 1:SCRIBA__-VOLNEY___345_21'
 - CONTINGENCYNAME: SCRIBA__-VOLNEY___345_21
 - En RT, elle a bindé le 4 (2.21), 6 (36.07), 8 (0.03), 11 (11.31), 14 (0.56), 15 (20.85), et du 17 au 30 sept (min SP de 6.36 et max de 1885.32, en |.|)
@@ -202,32 +206,9 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
-- Pour la contrainte avec CID_MAG: 10000422 et CID_CES: 309877
-- L’outage CLAY 345 KV -> INDPDNCE 345 KV (25858). Elle est en outage du 15 septembre au 6 octobre selon le 1DA dans Dayzer, le 1MA de Dayzer pensait qu’elle allait commencer le 22 septembre. Cet outage redirige 9-11% de ses flows sur la contrainte. 
-- Dans le 1DA, la contrainte elle-même est tombée en outage du 16-18 septembre, elle aurait sûrement continué de binder dans le marcher sinon. 
+- L’outage CLAY 345 KV -> INDPDNCE 345 KV (25858). Elle est en outage du 15 septembre au 6 octobre selon le 1DA dans Dayzer, le 1MA de Dayzer pensait qu’elle allait commencer le 22 septembre. Cet outage redirige 9-11% de ses flows sur la contrainte. Cet outage est présent dans les monthlys et les dailys de dayzer.
+- Dans le 1DA, la contrainte elle-même est tombée en outage du 16-18 septembre, elle aurait sûrement continué de binder dans le marché sinon. 
 - Dans le 1MA, Dayzer n’avait pas capté l’outage de la contrainte.
-- En regardant les flows dans Thanos, la contrainte ne semble pas binder par contre…
-- Peut-être la contrainte a générée à cause de la production nucléaire de la génératrice Nine Mile Pt 2.
-
-```{python}
-# | echo: false
-
-cu.get_all_cstr_data(pool_id,
-                      10000422,
-                      ftrstartdate,
-                      ftrenddate,
-                      histostartdate,
-                      histoenddate,
-                      scenario_flows,
-                      scenario_first_priority,
-                      scenario_sf,
-                      scenario_histo_sp,
-                      conn
-                      )
-
-```
-
-- Pour la contrainte avec CID_MAG: 10000210 et CID_CES: 301117
 - La contrainte est affectée par le même outage et a le même outage que décrit ci-dessus. L’outage redigire 17.1-20.5% de ses flows vers la contrainte. À l’inverse la contrainte	 ci-dessus, les flows montrent clairement que la contrainte binde
 
 ```{python}
@@ -263,8 +244,9 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
-- Dans le 1DA: Le générateur non renouvelable 1173 SCS Astoria Energy 2 augmente la congestion sur la contrainte (SF de 1, SF* Generation (avg)) de 281.7035 MW (et la contrainte à une limite maximale de 236 MW).
-- Il a aussi l’outage de ligne ASTORIAS 138 KV -> ASTORIAE 138 KV (25562), mais redirige moins de 5% de ses flows. 
+- Dans le 1DA: Du 1-15 septembre, la contrainte semble binder à cause des loopflows. Du 19-30 septembre, le générateur non renouvelable 1173 SCS Astoria Energy 2 augmente la congestion sur la contrainte (SF de 1, SF* Generation (avg)) de 281.7035 MW (et la contrainte à une limite maximale de 236 MW).
+- Il a aussi l’outage de ligne ASTORIAS 138 KV -> ASTORIAE 138 KV (25562), mais elle redirige moins de 5% de ses flows. Cet outage dure du 14 septembre 2025 au 13 septembre 2034. Cet outage est présent dans les monthlys et les dailys de dayzer.
+- La contrainte était en outage du 15-18 septembre.
 
 ```{python}
 # | echo: false
@@ -300,7 +282,7 @@ cu.get_all_cstr_data(pool_id,
 **Analyse :**
 
 - La contrainte était en outage elle aussi du 16-18 septembre.
-- L’outage de ligne LAKSUCSS 138 KV -> SHORE_RD 138 KV (25145) redirige 26-51% de ses flows dans Thanos sur la contrainte. L’outage était prévu dans les 1DA du 30 août au 30 septembre. Dans le 1MA, l’outage n’était pas prédit.
+- L’outage de ligne LAKSUCSS 138 KV -> SHORE_RD 138 KV (25145) redirige 26-51% de ses flows sur la contrainte. L’outage était prévu dans les 1DA du 30 août au 30 septembre. Dans le 1MA, l’outage n’était pas prédit.
 
 ```{python}
 # | echo: false
@@ -397,8 +379,8 @@ cu.get_all_cstr_data(pool_id,
 
 - Pour la contrainte avec CID_MAG: 10001879 et CID_CES: 200002
 - Dans le 1DA de Dayzer, l’outage de la contrainte était du 17 au 18 septembre. Cet outage n’a pas été prévu dans le 1MA de Dayzer.
-L’outage de ligne GOETHSLN 345 KV -> GOWANUSN 345 KV (25139) met beaucoup de pression (40-57% de ses flows dans Thanos pour le 1MA et 46-49% pour le 1DA). L’outage dure du 17-24 septembre selon le 1DA de Dayzer du 20 septembre.
-Les génératrices 715 Linden Cogen_23786 1 et 1490 Linden Cogen_23786 2 créent de la congestion sur la contrainte (SF de 0.4927 et SF*Generation (avg) de 214.7940 chaque) pour le fichier 1DA de Dayzer du 20 septembre.
+L’outage de ligne GOETHSLN 345 KV -> GOWANUSN 345 KV (25139) met beaucoup de pression (40-57% de ses flows dans Thanos pour le 1MA et 46-49% pour le 1DA). L’outage dure du 17-24 septembre selon le 1DA de Dayzer du 20 septembre. La contrainte semble absente du 1MA.
+- Les génératrices 715 Linden Cogen_23786 1 et 1490 Linden Cogen_23786 2 créent de la congestion sur la contrainte (SF de 0.4927 et SF*Generation (avg) de 214.7940 chaque) pour le fichier 1DA de Dayzer du 20 septembre.
 
 
 ```{python}
@@ -435,8 +417,8 @@ cu.get_all_cstr_data(pool_id,
 **Analyse :**
 
 - Dans le 1DA de Dayzer, l’outage de la contrainte était du 17 au 18 septembre. Cet outage n’a pas été prévu dans le 1MA de Dayzer.
-- L’outage CLAY 345 KV -> INDPDNCE 345 KV (25858). Elle est en outage du 15 septembre au 6 octobre selon le 1DA dans Dayzer, le 1MA de Dayzer pensait qu’elle allait commencer le 22 septembre.
-- Le 1MA prévoyait des redirected flows de cet outage dans le même intervalle que le 1DA, soit 19-22%.
+- L’outage CLAY 345 KV -> INDPDNCE 345 KV (25858). Elle est en outage du 15 septembre au 6 octobre selon le 1DA dans Dayzer, le 1MA de Dayzer pensait qu’elle allait commencer le 22 septembre. L'outage est prévu dans les monthlys et les dailys.
+- Le 1MA prévoyait des redirected flows de cet outage similaire à ceux du 1DA, soit 19-22%.
 
 
 ```{python}
@@ -515,7 +497,6 @@ cu.get_all_cstr_data(pool_id,
 Celle-ci redirige 43-47% de ses flux à la contrainte dans les jours du 3-5 septembre.
 - L’effet des unités 85 Barret ST01 et 86 Barret ST 02 ont été prévus dans le scout 1MA du 5 septembre (pas le vrai 1MA, car le fichier du vrai 1MA du 5 sept est manquant) étaient moindre que ceux dans le 1DA.
 
-
 ```{python}
 # | echo: false
 
@@ -552,8 +533,6 @@ cu.get_all_cstr_data(pool_id,
 - Dans le 1DA de Dayzer, l’outage de la contrainte était du 17 au 18 septembre. Cet outage n’a pas été prévu dans le 1MA de Dayzer.
 - Dans le 1DA, l’outage de ligne REYNOLDS 115 KV -> WYNTKLNM 115 KV (26143) redistribue 16.6% de ses flows à la contrainte le 3 septembre. Ceci est causé par un outage le 3 septembre de 8h à 18h donné dans le 1DA. Le 1MA ne voit rien de ceci. Le transmission outages Id dans Dayzer est 3862.
 - L’unité 114 Bethlehem GS1 semble créer de la congestion sur la contrainte (SF de 0.1338 et SF*Generation (avg) de 45.4941 quand le flow sur la contrainte est de 114.4 MW à 8h le 3 septembre dans le fichier Dayzer 1DA)
-
-
 
 
 ```{python}
