@@ -135,16 +135,16 @@ display(df)
 ```
 
 ### Statistiques scénarios Monthly:
-- 1MA_Default: /5
-- 1MA_AvgHistSP: /5
-- 1MA_DL_AvgSP: /5
-- La combinaison capte: /5
+- 1MA_Default: 1/5
+- 1MA_AvgHistSP: 1/5
+- 1MA_DL_AvgSP: 2/5
+- La combinaison capte: 2/5
 
 ### Statistiques scénarios Daily:
-- 1DA_Default: /5
-- 1DA_AvgHistSP: /5
-- 1DA_DL_AvgSP: /5
-- La combinaison capte: /5
+- 1DA_Default: 3/5
+<!-- - 1DA_AvgHistSP: /5 -->
+- 1DA_DL_AvgSP: 5/5
+- La combinaison capte: 5/5
 
 ### Comparaison avec les top contraintes de Yes
 ```{python}
@@ -178,6 +178,83 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 ```
 
 <details>
+  <summary>LAKSUCSS 138 SHORE_RD 138 1: BASE CASE</summary>
+
+**Infos :**
+
+- CID_MAG: 10001984
+- CID_CES: 201163
+- CES_NAME = 'LAKSUCSS 138 SHORE_RD 138 1: BASE CASE'
+- CONTINGENCYNAME: BASE CASE
+- PTID: 25150
+- En RT, la contrainte a bindé tous les jours du mois sauf le 2, 6, du 17-20 et le 29 novembre. Elle binde surtout le 11 (-4897.24) et 12 (-1407.99).
+- Au DAM, elle a bindé du 11-14, le 16 et du 22-30 novembre. Elle a surtout bindé du 27-30 (-1006.47, -1446.73, -722.34, -1848.57) novembre.
+
+**Analyse :**
+
+- Les lignes SHORE_RD-LAKSUCSS_138_367_BASE_CASE(25145) et SHORE_RD-LAKSUCSS_138_368_BASE_CASE(25150) semblent être des lignes parallèles. 
+- Dans le scénario 1DA, la contrainte ne binde pas, mais la load a un fort impact. La combinaison de la load et de l'outage pourrait expliquer le binde de la contrainte.
+- L'outage de ligne LAKSUCSS 138 KV -> SHORE_RD 138 KV (25145, SHORE_RD-LAKSUCSS 138 KV 367 dans le marché), qui dure du 21 septembre au 31 décembre ajoute de la pression sur la contrainte SHORE_RD-LAKSUCSS_138_368_BASE_CASE(25150).
+- L'outage GLENWDGT-ROSLYN 138KV 364 soulage la contrainte. Lorsqu'elle n'est plus en outage à partir du 26 novembre, la contrainte n'est plus soulagée par cet outage, mais le premier et le troisième outages sont encore là et mettent de la pression, ce qui causent ainsi les très gros bindent de la contrante et le saut de flow vers la fin du mois (ce qui n'a pas été prédis en monthly).
+- L'outage VALLYSTR-STEWRTAV 138KV 262 n'était pas planifié.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "SHORE_RD-LAKSUCSS 138KV 367",
+"Type": "LINE",
+"KV": 115,
+"Eqkey": 25145,
+"Start": "09/21/2025 00:59",
+"End": "12/04/2025 23:57",
+},
+{
+"Source": "NEISO",
+"Equipment": "GLENWDGT-ROSLYN 138KV 364",
+"Type": "LINE",
+"KV": 115,
+"Eqkey": 25556,
+"Start": "11/17/2025 23:16",
+"End": "11/25/2025 23:57",		
+},
+{
+"Source": "NEISO",
+"Equipment": "VALLYSTR-STEWRTAV 138KV 262",
+"Type": "LINE",
+"KV": 115,
+"Eqkey": ,
+"Start": "10/09/2025 13:10",
+"End": "12/04/2025 23:57",
+}
+]
+
+df = pd.DataFrame(data)
+display(df)
+```
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001984,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+
+<details>
   <summary> STEWRTAV 138 VALLYSTR 138 1:SCB:NEWBRDG(1380)461&BK6+4&R1 </summary>
 
 **Infos :**
@@ -186,13 +263,11 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 - CID_CES: 310106 et 310104
 <!-- - CES_NAME = 'STEWRTAV 138 VALLYSTR 138 1:SCB:NEWBRDG(1380)461&BK6+4&R1' -->
 - CONTINGENCYNAME: SCB:NEWBRDG(1380)461&BK6+4&R1
-- En RT, la contrainte a bindé le 1er (11.31), du 14-22 novembre (max |SP| de 265.10 le 17) et ... ().
-- Au DAM, elle a bindé du 1-3 (66.42, 23.44, 950.38), 14 (335.43), 23 (353.77) novembre et ... ().
+- En RT, la contrainte a bindé le 1er (11.31) et du 14-22 novembre (max |SP| de 265.10 le 17).
+- Au DAM, elle a bindé du 1-3 (66.42, 23.44, 950.38), 14 (335.43) et 23 (353.77) novembre.
 
 **Analyse :**
 
-- 
-<!-- qui dure du 9 déc 2020 au 1 jan 2040, redirige beaucoup de flows sur la contrainte. -->
 - Il a les outages de ligne VALLYSTR-STEWRTAV 138 KV 261 du 14 au 22 novembre et STEWRTAV-NEWBRDGE 138KV 463 du 14 novembre ont sûrement eu un impact. Dans le scénario 1DA_Default, l'outage de ligne VALLEY STR 2 -> E. GARDEN CTY (ID 91331, eqkey 327260) du 14 novembre, qui semble être l'outage VALLYSTR-STEWRTAV 138 KV 261, redirige beaucoup de flows sur la contrainte.
 - Dans le marché, il a l'outage VALLYSTR-STEWRTAV 138 KV 262, qui a commencé le 22 novembre. Dans le scénario 1DA_Default, l'outage de ligne VALLEY STR 2 -> E. GARDEN CTY (ID 91331, eqkey 327260) du 15-30 novembre, qui semble être l'outage VALLYSTR-STEWRTAV 138 KV 261, redirige beaucoup de flows sur la contrainte.
 
@@ -225,59 +300,21 @@ cu.get_all_cstr_data(pool_id,
 - CID_CES: 201013 
 <!-- - CES_NAME = 'NEWBRDGE 138 STEWRTAV 138 2: BASE CASE' -->
 - CONTINGENCYNAME: BASE CASE
-- En RT, la contrainte a bindé 1-2 (1282.29, 147.18), 6 (234.22), 14 (314.01), ...
-- Au DAM, elle contrainte a bindé 1-3 (102.52, 68.78, 550.74), 6-7 (74.90, 44.65), ...
+- En RT, la contrainte a bindé 1-2 (1282.29, 147.18), 6 (234.22) et 14 (314.01) novembre.
+- Au DAM, elle contrainte a bindé 1-3 (102.52, 68.78, 550.74), 6-7 (74.90, 44.65) novembre.
 
 **Analyse :**
 
+- Les outages de ligne STEWRTAV-ROSLYN 138KV 362 et STEWRTAV-ROSLYN 138KV 363 du 30 octobre a 1er novembre semblent soulager la contrainte.
 - L’outage de ligne EGRDNCTYT 138 KV -> NEWBRDGE 138 KV (25304) du 3 novembre redirige beaucoup de flows sur la contrainte.
 - L’outage de ligne EGRDNCTYT 138 KV -> NEWBRDGE 138 KV (25304) du 14 novembre redirige beaucoup de flows sur la contrainte, ce qui pourrait expliquer le bind de la contrainte ce jours-là au RT.
-- Dans le coin, il a aussi les outages de ligne VALLYSTR-STEWRTAV 138 KV 261, qui dure du 9 octobre au 3 novembre, et STEWRTAV-ROSLYN 138KV 362 et STEWRTAV-ROSLYN 138KV 363, qui durent du 30 octobre au 1 novembre. Ceux-ci semblent absents de dayzer.
+<!-- - Dans le coin, il a aussi les outages de ligne VALLYSTR-STEWRTAV 138 KV 261, qui dure du 9 octobre au 3 novembre. Cet outage semble absent de dayzer. -->
 
 ```{python}
 # | echo: false
 
 cu.get_all_cstr_data(pool_id,
                       10001928,
-                      ftrstartdate,
-                      ftrenddate,
-                      histostartdate,
-                      histoenddate,
-                      scenario_flows,
-                      scenario_first_priority,
-                      scenario_sf,
-                      scenario_histo_sp,
-                      conn
-                      )
-
-```
-</details> 
-
-<details>
-  <summary>GOETHALS 345 LINDN_CG 345 1: BASE CASE</summary>
-
-**Infos :**
-
-- CID_MAG: 10002058
-- CID_CES: 311143 
-<!-- - CES_NAME = 'GOETHALS 345 LINDN_CG 345 1: BASE CASE' -->
-- CONTINGENCYNAME: BASE CASE
-- En RT, la contrainte a bindé 1-3 (108.20, 123.82, 11.31), 11-15 (0.44, 26.60, 81.20, 442.26, 248.80), et ... ().
-- Au DAM, elle a bindé du 1-3 (50.93, 49.20, 0.82), 6 (5.03), 13-15 (118.74, 252.53, 219.72), et ... ().
-
-**Analyse :**
-
-- Dans le scénario 1DA, la ligne associée à la contrainte était en outage du 29 octobre au 5 novembre. Ceci ne semble pas avoir été le cas en réalité, ce qui explique pourquoi dayzer n'a pas capté le binde de la contrainte.
-- L'outage de ligne GOETHALS 345 KV -> LIND_CG 345 KV (325203, de nom GOETHALS-LINDN_CG 345 KV G23L dans le marché), qui dure du 29 octobre au 6 novembre, semble avoir eu un effet sur le binding de la contrainte en début de mois.
-- L'outage GOETHALS-LINDN_CG 345 KV G23M dans le marché, qui dure du 6 au 15 novembre, pourrait expliquer le binding de la contraine en milieu de mois. Dans dayzer, elle semble encore s'appeller GOETHALS 345 KV -> LIND_CG 345 KV (325203).
-- La forte production non renouvelable (1599 Linden Cogen_23786 3, 715 Linden Cogen_23786 1 et 1490 Linden Cogen_23786 2) semble avoir contribué à ce que la contrainte binde fortement le 15 novembre.
-
-
-```{python}
-# | echo: false
-
-cu.get_all_cstr_data(pool_id,
-                      10002058,
                       ftrstartdate,
                       ftrenddate,
                       histostartdate,
@@ -301,18 +338,48 @@ cu.get_all_cstr_data(pool_id,
 - CID_CES: 20014
 <!-- - CES_NAME = 'CENTRAL EAST - VC: BASE CASE' -->
 - CONTINGENCYNAME: BASE CASE
-- En RT, la contrainte a bindé du 20-21 (19.91, 146.55), 23-25 (86.47, 17.17, ...) et ... () novembre.
-- Au DAM, elle a bindé le 3 (12.95), du 20-21 (6.23, 31.02), 23-25 (353.58, 44.28, ...) et ... () novembre.
+- En RT, la contrainte a bindé du 20-21 (19.91, 146.55) et 23-25 (86.47, 17.18, 2.60, 13.09) novembre.
+- Au DAM, elle a bindé le 3 (12.95), du 20-21 (6.23, 31.02), 23-28, sauf le 27, (353.58, 44.28, 0.75, 280.46, 7.07) novembre.
 
 **Analyse :**
 
-- 
+- Les deux outages suivants redirigent beaucoup de flows sur la ligne associée à la contrainte.
+- La génération de la load (71209 NY N.Y.C, 71206 NY Long Island, 71201 NY Capital, 71205 NY Hudson Valley, 71203 NY Dunwoodie).
+- La combinaison des outages et de la load ont possiblement contribués au binde de la contrainte.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "LONG_MTN	CRICKVLY	LONG_MTN-CRICKVLY 345KV 398",
+"Type": "LINE",
+"KV": 115,
+"PTID": 25033,
+"Start": "10/22/2025 01:17",
+"End": "12/31/2025 ...:...",
+"Planned Start": "10/22/2025 00:17",
+"Planned End": "12/31/2025 23:59",
+},
+{
+"Source": "NEISO",
+"Equipment": "BORDRCTY	GUARDIAN	BORDRCTY-GUARDIAN 115KV 969",
+"Type": "LINE",
+"KV": 115,
+"PTID": 325283,
+"Start": "11/01/2025 12:12",
+"End": "12/01/2025 ...:...",
+"Planned Start": "11/01/2025 11:12",
+"Planned End": "12/01/2025 23:59",
+}
+]
+
+df = pd.DataFrame(data)
+display(df)
 
 
-Source	Equipment	Type	KV	Start	End	Planned Start	Planned End
-NYISO	CHATGUAY-MASSENA 765KV 7040	LINE	765	11/16/2025 00:22:00			au 30 nov dans dayzer
-Source	Equipment	Type	KV	Start	End	Planned Start	Planned End
-NYISO	MASSENA-MARCY 765KV MSU1	LINE	765	11/19/2025 00:39:00			au 26 nov dans dayzer
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Novembre 2025 NEPOOL\KCW_3-4Nov.png"))
+```
 
 ```{python}
 # | echo: false
@@ -331,31 +398,33 @@ cu.get_all_cstr_data(pool_id,
                       )
 
 ```
-</details> 
-
+</details>
 
 <details>
-  <summary>LAKSUCSS 138 SHORE_RD 138 1: BASE CASE</summary>
+  <summary>GOETHALS 345 LINDN_CG 345 1: BASE CASE</summary>
 
 **Infos :**
 
-- CID_MAG: 10001984
-- CID_CES: 201163
-- CES_NAME = 'LAKSUCSS 138 SHORE_RD 138 1: BASE CASE'
+- CID_MAG: 10002058
+- CID_CES: 311143 
+<!-- - CES_NAME = 'GOETHALS 345 LINDN_CG 345 1: BASE CASE' -->
 - CONTINGENCYNAME: BASE CASE
-- En RT, la contrainte a bindé tous les jours (jusqu'à maintenant le 25 nov) sauf le 2, 6 et du 17-20 novembre. Elle binde surtout le 11 (4897.24) et 12 (1407.99).
-- Au DAM, elle a bindé du 11-14, le 16, du 22-25 et ... () novembre. Elle a surtout bindé le 14 (102.65) et 23 (215.33).
+- En RT, la contrainte a bindé 1-3 (-108.20, -123.82, -11.31) et 11-15 (-0.44, -26.60, -81.20, -442.26, -248.80) novembre.
+- Au DAM, elle a bindé du 1-3 (-50.93, -49.20, -0.82), 6 (-5.03) et 13-15 (-118.74, -252.53, -219.72) novembre.
 
 **Analyse :**
 
-- L'outage de ligne LAKSUCSS 138 KV -> SHORE_RD 138 KV (25145, SHORE_RD-LAKSUCSS 138 KV 367 dans le marché), qui dure du 21 septembre au 30 novembre ajoute de la pression sur la contrainte.
-- Dans le scénario 1DA, la contrainte ne binde pas, mais la load a un fort impact. La combinaison de la laod et de l'outage pourrait expliquer le binde de la contrainte.
+- Dans le scénario 1DA, la ligne associée à la contrainte était en outage du 29 octobre au 5 novembre. Ceci ne semble pas avoir été le cas en réalité, ce qui explique pourquoi dayzer n'a pas capté le binde de la contrainte.
+- L'outage de ligne GOETHALS 345 KV -> LIND_CG 345 KV (325203, de nom GOETHALS-LINDN_CG 345 KV G23L dans le marché), qui dure du 29 octobre au 6 novembre, semble avoir eu un effet sur le binding de la contrainte en début de mois.
+- L'outage GOETHALS-LINDN_CG 345 KV G23M dans le marché, qui dure du 6 au 15 novembre, pourrait expliquer le binding de la contraine en milieu de mois. Dans dayzer, elle semble encore s'appeller GOETHALS 345 KV -> LIND_CG 345 KV (325203).
+- La forte production non renouvelable (1599 Linden Cogen_23786 3, 715 Linden Cogen_23786 1 et 1490 Linden Cogen_23786 2) semble avoir contribué à ce que la contrainte binde fortement le 14-15 novembre.
+
 
 ```{python}
 # | echo: false
 
 cu.get_all_cstr_data(pool_id,
-                      10001984,
+                      10002058,
                       ftrstartdate,
                       ftrenddate,
                       histostartdate,
@@ -369,4 +438,9 @@ cu.get_all_cstr_data(pool_id,
 
 ```
 </details> 
+
+ 
+
+
+ 
 

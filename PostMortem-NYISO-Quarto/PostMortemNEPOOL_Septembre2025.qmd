@@ -273,16 +273,16 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 - CID_MAG: 30002894
 - CID_CES: 1082
 <!-- - MKUNITCID: 25583_1044 -->
-- CES_NAME = 'SHEF'
+- CES_NAME = 'Sheffield Generation (SHEF)'
 - CONTINGENCYNAME: INTERFACE
 - Elle a bindé en RT le 26 septembre (-704.59).
 - Elle a bindé au DAM le 3 (-502.52) et 26 septembre (-723.44) en DA.
 
 **Analyse :**
 
-- Il n'est pas clair pourquoi la contrainte binde le 3 septembre. Peut-être la génération du 18008 Sheffield Wind Plant a possiblement contribué à ce que la contrainte binde.
-- Il a ces outages dans le coin le 3 septembre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte.
-- Ces outages semblent absents des monthlys, mais présents dans le 1DA_Default.
+- Dans dayzer, on ne voit pas clairement pourquoi la contrainte binde le 3 septembre.
+- Il se peut que la génération du 18008 Sheffield Wind Plant a possiblement contribué à ce que la contrainte binde.
+- Il a ces outages dans le coin le 3 septembre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte dans dayzer, mais la contrainte est reconnu pour binder à cause d'outages et de la génération. Ces outages semblent absents des monthlys, mais présents dans le 1DA_Default.
 
 ```{python}
 # | echo: false
@@ -326,9 +326,9 @@ display(df)
 display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Septembre 2025 NEPOOL\SHEF_3Sept.png"))
 ```
 
-- Il n'est pas clair pourquoi la contrainte binde le 26 septembre. Peut-être la génération du 18008 Sheffield Wind Plant a possiblement contribué à ce que la contrainte binde.
-- Il a ces outages dans le coin le 26 septembre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte.
-- Ces outages semblent absents des monthlys, mais présents dans les dailys.
+- Dans dayzer, on ne voit pas clairement pourquoi la contrainte binde le 26 septembre.
+- Il se peut que la génération du 18008 Sheffield Wind Plant a possiblement contribué à ce que la contrainte binde.
+- Il a ces outages dans le coin le 26 septembre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte dans dayzer, mais la contrainte est reconnu pour binder à cause d'outages et de la génération. Ces outages semblent absents des monthlys, mais présents dans le 1DA_Default.
 
 ```{python}
 # | echo: false
@@ -396,9 +396,9 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
-- Il n'est pas clair pourquoi la contrainte binde le 26 septembre. Peut-être la génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde.
-- Il a ces outages dans le coin le 26 septembre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte.
-- Ces outages semblent absents des monthlys, mais présents dans les dailys.
+- Dans dayzer, on ne voit pas clairement pourquoi la contrainte binde le 26 septembre.
+- Il se peut que la génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde.
+- Il a ces outages dans le coin le 26 septembre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte dans dayzer, mais la contrainte est reconnu pour binder à cause d'outages et de la génération. Ces outages semblent absents des monthlys, mais présents dans le 1DA_Default.
 
 ```{python}
 # | echo: false
@@ -490,14 +490,13 @@ cu.get_all_cstr_data(pool_id,
 
 
 <details>
-  <summary> FORT_HIL_1090_A_LN:ACTUAL </summary>
+  <summary> FORT_HIL1090ALN </summary>
 
 **Infos :**
 
-- CID_MAG: 30003309
-- CID_CES: 500049
-<!-- - MKUNITCID: 25583_1044 -->
-- CES_NAME = 'FORT_HIL_1090_A_LN:ACTUAL'
+- CID_MAG: 30003037	
+- CID_CES: 4500013
+- CES_NAME = 'FORT_HIL1090ALN'
 - CONTINGENCYNAME: ZB71
 - La contrainte a un nom un peu différent (368_FORT_HIL_1090_A) et une contingence différente (NULL) en RT. Celle-ci a bindé en RT le 7 (682.55), 8 (2.19), et 9 (127.67) septembre.
 - La contrainte (avec la bonne contingence de ZB71) a bindé le 5 (170.89), 8 (48.74), et 9 (131.50) en DA.
@@ -505,6 +504,7 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
+- La contrainte était manquante dans dayzer. On l'a ajouté au modèle le 2 décembre 2025. Ceci explique pourquoi aucun scénario a capté la contrainte (tous les SP sont 0).
 - Rien ne semble expliquer pourquoi la contrainte binde le 7 septembre.
 - Selon le marché, la contrainte binde à cause d'un outage d'équipement planifié, mais il ne précise pas lequel.
 - Extrait du marché: "On Tuesday, September 9, depressed pricing in the Connecticut (CT) Load Zone was caused by
@@ -545,11 +545,11 @@ display(df)
 display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Septembre 2025 NEPOOL\FortHill_9Sept.png"))
 ```
 
-<!-- ```{python}
+```{python}
 # | echo: false
 
 cu.get_all_cstr_data(pool_id,
-                      30003309,
+                      30003037,
                       ftrstartdate,
                       ftrenddate,
                       histostartdate,
@@ -561,7 +561,7 @@ cu.get_all_cstr_data(pool_id,
                       conn
                       )
 
-``` -->
+```
 </details> 
 
 

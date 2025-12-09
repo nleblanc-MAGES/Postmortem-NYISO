@@ -128,6 +128,9 @@ def get_all_cstr_data(pool_id: int,
                         ,histoenddate
                         ,_conn)
     
+    from IPython.display import Image, display
+    # display(df_catego)
+    
     gu.shadowprice_monthly_fig(df_histo_SP,
                           cid_mag,
                           )

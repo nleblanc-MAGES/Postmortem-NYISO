@@ -228,21 +228,21 @@ show(df_PM,
 ```
 
 ### Statistiques scénarios Monthly:
-- 1MA_Default: /8
-- 1MA_AvgHistSP: /8
-- 1MA_DL_AvgSP: /8
-- La combinaison capte: /8
+- 1MA_Default: 4/6
+- 1MA_AvgHistSP: 5/6
+- 1MA_DL_AvgSP: 2/6
+- La combinaison capte: 5/6
 
 ### Statistiques scénarios Daily:
-- 1DA_Default: /8
-- 1DA_AvgHistSP: /8
-- 1DA_DL_AvgSP: /8
-- La combinaison capte: /8
+- 1DA_Default: 4/6
+- 1DA_AvgHistSP: 4/6
+- 1DA_DL_AvgSP: 6/6
+- La combinaison capte: 6/6
 
 ### Comparaison avec les top contraintes de Yes
 ```{python}
 # | echo: false
-# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\TopContraintesDansYesNov2025.png"))
+display(Image("H:\\GitHub\\Postmortem-NYISO\\PostMortem-NYISO-Quarto\\Novembre 2025 NEPOOL\\TopContraintesDansYesNov2025.png"))
 ```
 
 ## 🕵️ Analyses des contraintes
@@ -271,14 +271,14 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 
 - CID_MAG: 30002892
 - CID_CES: 1080
-- CES_NAME = 'BURG'
+- CES_NAME = 'Burgess Generation (BURG)'
 - CONTINGENCYNAME: INTERFACE
-- La contrainte a bindé tous les jours au RT du 4-21 novembre.
-- Elle a bindé tous les jours au DAM du 6-21 novembre.
+- La contrainte a bindé tous les jours au RT du 4-25 novembre (le plus était le 23 pour 2387.60$).
+- Elle a bindé tous les jours au DAM du 6-26 novembre (le plus était le 12 pour 1190.15$).
 
 **Analyse :**
 
-- Il n'est pas clair dans dayzer pourquoi la contrainte binde, mais c'est probablement dû à la génération du 2087 Burgess BioPower et l'outage de ligne suivant dans le coin aient eu un effet. L'outage était présent dans les monthlys et les dailys.
+- Il n'est pas clair dans dayzer pourquoi la contrainte binde, mais c'est probablement dû à la génération du 2087 Burgess BioPower et l'outage de ligne suivant dans le coin aient eu un effet. Les outages étaient présents dans les monthlys et les dailys.
 
 ```{python}
 # | echo: false
@@ -347,14 +347,34 @@ cu.get_all_cstr_data(pool_id,
 - CID_CES: 1059
 - CES_NAME = 'Inner Rumford Export (IRMF-E)'
 - CONTINGENCYNAME: INTERFACE
-- Elle a bindé en RT du 14-16 (1.66, 1639.34, 798.09) et du 19-21 (240.89, 60.01, 320.90) novembre.
-- Elle a bindé au DAM le 1 nov (134.68), 15-16 (667.34, 721.06), 19 (198.06) et 21 (170.35).
+- Elle a bindé en RT du 14-16 (1.66, 1639.34, 798.09), 19-21 (240.89, 60.01, 320.90) et 23-24 (7.83, 109.17) novembre.
+- Elle a bindé au DAM le 1 nov (134.68), 15-16 (667.34, 721.06), 19 (198.06), 21 (170.35) et 24 (377.75).
 
 **Analyse :**
-<!-- ![Description of image](Postmortem-NYISO\\PostMortem-NYISO-Quarto\\Septembre 2025 NEPOOL\\SHEF_3Sept.png) -->
 
-- La contrainte semble binder à cause de la génération non renouvelable (1970 RUMFORD POWER), d'hydro (52108 RUMFORD FALLS) et du vent (20350 Rox Wind).
-- L'outage suivant a peut-être eu un impact. Il n'est pas présent dans les dailys ni les monthlys.
+- La contrainte semble binder à cause des outages suivants et de la combinaison de la génération non renouvelable (1970 RUMFORD POWER), du vent (RECORD HILL WIND, Saddleback Mountain Wind, Rox Wind, Canton Mountain Wind) et d'hydro (52108 RUMFORD FALLS).
+- L'outage suivante pourrait avoir contribué au binde de la contrainte le 1er novembre:
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "WOODSTCK 115 KV LINE 210: WOODSTCK",
+"Type": "LINE",
+"KV": 115,
+"Start": "10/27/2025 08:40",
+"End": "11/07/2025 14:53",
+"Planned Start": "10/27/2025 07:30",
+"Planned End": "11/07/2025 14:00",
+}
+]
+
+df = pd.DataFrame(data)
+display(df)
+```
+
+- Les outages suivants ont possiblement contribué au binde de la contrainte du 14-25 novembre:
 
 ```{python}
 # | echo: false
@@ -365,15 +385,36 @@ data = [
 "Type": "LINE",
 "KV": 115,
 "Start": "11/12/2025 14:08",
-"End": "11/22/2025 ...",
-"Planned Start": "11/12/2025 07:00",
-"Planned End": "10/22/2025 15:00",
+"End": "11/25/2025 14:38",
+"Planned Start": "11/12/2025 14:08",
+"Planned End": "11/25/2025 16:00",
 }
 ]
 
 df = pd.DataFrame(data)
 display(df)
+```
 
+
+- L'outage suivante a possiblement contribé au binde de la contrainte le 24 novembre:
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "LOVELL 115 KV LINE 214-3: LOVELL",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/24/2025 06:50",
+"End": "11/26/2025 17:23",
+"Planned Start": "11/24/2025 06:00",
+"Planned End": "11/26/2025 18:00",
+}
+]
+
+df = pd.DataFrame(data)
+display(df)
 ```
 
 
@@ -406,27 +447,16 @@ cu.get_all_cstr_data(pool_id,
 - CID_CES: 501212
 - CES_NAME = 'WYMAN_HY_215_A_LN:ACTUAL'
 - CONTINGENCYNAME: ACTUAL
-- Elle a bindé en RT le 3 novembre (11.07).
+- Elle a bindé en RT le 3 novembre (265.73).
 - Elle a bindé au DAM le 3 (703.33) et 4 (937.34) novembre.
 
 **Analyse :**
 
-<!-- - La contrainte semble avoir bindé à cause de  -->
-- On ne voit pas l'impact dans dayzer, mais il a l'outage suivant dans le coin:
+- Il a l'outage de circuit breaker suivant dans le coin qui a sûrement causé le binde de la contrainte. Cet outage n'est pas dans dayzer, car il ne modélise pas bien les circuits breakers.
 
 ```{python}
 # | echo: false
 data = [
-{
-"Source": "NEISO",
-"Equipment": "WYMAN_HY 115 KV BRKR K288-1",
-"Type": "BRKR",
-"KV": 115,
-"Start": "11/05/2025 06:48",
-"End": "11/05/2025 17:08",
-"Planned Start": "11/05/2025 13:00",
-"Planned End": "11/05/2025 16:00",
-},
 {
 "Source": "NEISO",
 "Equipment": "WYMAN_HY 115 KV BRKR K215-1: 215",
@@ -464,8 +494,7 @@ cu.get_all_cstr_data(pool_id,
 
 ```
 
-</details> 
-
+</details>
 
 <details>
   <summary> KR-EXP </summary>
@@ -477,34 +506,12 @@ cu.get_all_cstr_data(pool_id,
 <!-- - MKUNITCID: 25583_1044 -->
 - CES_NAME = 'KEENE ROAD EXPORT INTERFACE (KR-EXP)'
 - CONTINGENCYNAME: INTERFACE
-- Elle a bindé en RT le 1 (1077.97) et du 4-6 november (1032.46, 14.59, 76.01).
-- Elle a bindé au DAM du 1-4 (297.86, 13.71, 198.15, 321.77), le 6 (618.55), 7 (5.89) et du 17-18 (145.11, 30.07).
+- Elle a bindé en RT le 1 (1077.97), du 4-6 (1032.46, 14.59, 76.01) et 29 novembre (298.60).
+- Elle a bindé au DAM du 1-4 (297.86, 13.71, 198.15, 321.77), le 6 (618.55), 7 (5.89), du 17-18 (145.11, 30.07) et le 29 novembre (8.98).
 
 **Analyse :**
 
 - La contrainte semble avoir bindé à cause de la génération de vent (ROLLINS WIND PLANT, STETSON WIND FARM, et STETSON II WIND FARM) et d'hydro (Greatlakes Millinocket Hydro).
-- Il a l'outage suivant dans le coin, mais il ne semble pas affecter la contrainte:
-```{python}
-# | echo: false
-data = [
-{
-"Source": "NEISO",
-"Equipment": "GRAHAM 115 KV LINE 97BHE",
-"Type": "LINE",
-"KV": 115,
-"Start": "10/27/2025 07:43",
-"End": "10/30/2025 14:08",
-"Planned Start": "10/27/2025 06:00",
-"Planned End": "10/31/2025 18:00",
-},	
-]
-
-df = pd.DataFrame(data)
-display(df)
-
-
-# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\ORRINGTN249ALN_20OctAu23Oct.png"))
-```
 
 ```{python}
 # | echo: false
@@ -524,7 +531,45 @@ cu.get_all_cstr_data(pool_id,
 
 ```
 
+</details>
+
+
+<details>
+  <summary> DNEAST </summary>
+
+**Infos :**
+
+- CID_MAG: 30002921		
+- CID_CES: 1113
+- CES_NAME = 'Down East Export (DNEAST)'
+- CONTINGENCYNAME: INTERFACE
+- Elle a bindé en RT le 25 (-88.38) et du 27-30 novembre (-100.41, -159.22, -1025.75, -639.79).
+- Elle a bindé au DAM du 28-30 novembre (-280.04, -731.51, -398.76).
+
+**Analyse :**
+
+- La contrainte semble avoir bindé à cause de la génération de vent (15673 Downeast Wind, 18033 Weaver Wind Maine, 18026 Hancock Wind ME, 18018 BULL HILL WIND).
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002921,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
 </details> 
+ 
 
 <details>
   <summary> KCW </summary>
@@ -536,15 +581,12 @@ cu.get_all_cstr_data(pool_id,
 <!-- - MKUNITCID: 25583_1044 -->
 - CES_NAME = 'Kingdom Wind Generation (KCW)'
 - CONTINGENCYNAME: INTERFACE
-- Elle a surtout bindé en RT du 3-4 (104.45, 782.04) et du 5-9 (3.26, 22.08, 48.01, 89.01) novembre.
-- Elle a bindé au DAM du 3-4 (236.97, 467.16) et du 6-7 (362.00, 236.96) novembre.
+- Elle a surtout bindé en RT du 3-4 (-104.45, -782.04) et du 5-9 (-3.26, -22.08, -48.01, -89.01) novembre.
+- Elle a bindé au DAM du 3-4 (-236.97, -467.16) et du 6-7 (-362.00, -236.96) novembre.
 
 **Analyse :**
 
-<!-- - La génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde. -->
-- Du 4 au 5 novembre, il avait les outages suivants dans le coin. KCW est une contrainte qui est connue pour binder à cause d'outages.
-
-<!-- Ceux-ci ne semblent pas impacter la contrainte. Le K42S-1, K42-2, K42SA et K42-3 étaient absents des monthlys. Ils étaient tous présents dans les 1DA_Default. -->
+- Du 3 au 5 novembre, il avait les outages suivants dans le coin. KCW est une contrainte qui est connue pour binder à cause d'outages.
 
 ```{python}
 # | echo: false
@@ -579,17 +621,24 @@ data = [
 "Planned Start": "11/04/2025 22:36",
 "Planned End": "11/05/2025 23:59",
 },
+{
+"Source": "NEISO",
+"Equipment": "SO_HERO 115 KV LINE PV20-1: SO_HERO",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/03/2025 06:59",
+"End": "11/14/2025 17:53",
+"Planned Start": "11/03/2025 06:00:00",
+"Planned End": "11/14/2025 18:00:00",
+}
 ]
 
 df = pd.DataFrame(data)
 display(df)
 
 
-# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\KCW_9Oct.png"))
+display(Image("H:\\GitHub\\Postmortem-NYISO\\PostMortem-NYISO-Quarto\\Novembre 2025 NEPOOL\\KCW_3-4Nov.png"))
 ```
-
-
-
 
 ```{python}
 # | echo: false
@@ -621,12 +670,36 @@ cu.get_all_cstr_data(pool_id,
 - CES_NAME = 'Reenergy Stratton Generation (STRA)'
 - CONTINGENCYNAME: INTERFACE
 - Il manquait le mapping entre la contrainte dans Dayzer et dans Yes, donc on l'a ajouté.
-- La contrainte a bindé au DAM en septembre pour 56.40$. En octobre, elle a bindé pour 889.52$ en RT et 1225.63$ au DAM. En novembre, elle a bindé au DAM le 5 (-131.9), 6 (-171), 7 (-107.03), 13 (-87.5 et -462.60).
+- La contrainte a bindé en RT du 5-6 (-54.25, -14.59) et 10-13 (-159.93, -63.36, -6.16, -62.39) novembre.
+- La contrainte a bindé au DAM en septembre pour -56.40. En octobre, elle a bindé pour -889.52 en RT et -1225.63 au DAM. En novembre, elle a bindé au DAM le 5-7 (-131.90, -171.96, -107.26) et 13 (-552.40).
 
 
 **Analyse :**
 
 - La contrainte semble binder à cause de la production non renouvelable (REENERGY STRATTON).
+- L'outage suivant a peut-être contribué à le binde de la contrainte.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "WYMAN_HY 115 KV LINE 63-1",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/12/2025 07:35",
+"End": "11/13/2025 14:23",
+"Planned Start": "11/12/2025 07:00",
+"Planned End": "11/13/2025 16:00",
+}
+]
+
+df = pd.DataFrame(data)
+display(df)
+
+
+display(Image("H:\\GitHub\\Postmortem-NYISO\\PostMortem-NYISO-Quarto\\Novembre 2025 NEPOOL\\STRA_12-15Nov.png"))
+```
 
 ```{python}
 # | echo: false
@@ -645,81 +718,32 @@ cu.get_all_cstr_data(pool_id,
                       )
 
 ```
-</details> 
-
+</details>
 
 <details>
   <summary> BUNKR_HL1029-2ALN  </summary>
 
 **Infos :**
 
-- CID_MAG: 300001083
+- CID_MAG: 30001083
 - CID_CES: 611255
 - CES_NAME = 'BUNKR_HL_1029-2_A_LN:1789'
-- CONTINGENCYNAME: 1709
-- Elle a bindé en RT le 19 (-94.22), 21 (-69.25), 22 (-1318.97), 24 (-420.98), ... et ... novembre.
-- Elle a bindé au DAM le 20 (-28.41), 21 (-196.04), 23 (-298.57), 24 (-188.31), ... et ... novembre.
+- CONTINGENCYNAME: 1789
+- Elle a bindé en RT le 19-21 (-94.22, -69.25, -1318.97), 23 (-420.98) et 25 (-56.62) novembre.
+- Elle a bindé au DAM du 20-21 (-28.41, -196.04) et 23-25 (-298.57, -188.31, -51.29) novembre.
 
 
 **Analyse :**
 
-- Dans les prébids, les outages suivants
-
-<!-- STEVENSN -> SANDY_HK (Id: 2341, Voltage (kV): 115, eqkey: 1232, Start Date 11-7-2025, Start Hour: 13, End Date: 11-13-2025, End Hour: 16)
-
-BEACN_FL -> OXFORD (Id: 2326, Voltage (kV): 115, eqkey: 1319, start date 10-27-2025, start hour: 21, End Date: 11-26-2025, End Hour: 18)
-
-S_NAUGTK -> TOWANTIC (Id: 2322, Voltage (kV): 115, eqkey: 1142, start date 11-7-2025, start hour: 13, End Date: 11-26-2025, End Hour: 20) -->
-
-
-```{python}
-# | echo: false
-data = [
-{
-"Source": "NEISO",
-"Equipment": "STEVENSN 115 KV LINE 1232",
-"Type": "Line",
-"KV": 115,
-"Start": "11/07/2025 08:21",
-"End": "11/13/2025 18:23",
-"Planned Start": "11/07/2025 08:00",
-"Planned End": "11/13/2025 15:00",
-},
-{
-"Source": "NEISO",
-"Equipment": "BEACN_FL 115 KV LINE 1319",
-"Type": "LINE",
-"KV": 115,
-"Start": "10/27/2025 22:36",
-"End": "11/26/2025 ...",
-"Planned Start": "10/27/2025 20:30",
-"Planned End": "11/26/2025 17:00",
-},
-{
-"Source": "NEISO",
-"Equipment": "S_NAUGTK 115 KV LINE 1142",
-"Type": "LINE",
-"KV": 115,
-"Start": "11/07/2025 11:25",
-"End": "11/26/2025 ...",
-"Planned Start": "11/07/2025 12:00",
-"Planned End": "11/26/2025 19:00",
-},
-]
-
-df = pd.DataFrame(data)
-display(df)
-
-
-# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\KCW_9Oct.png"))
-```
-
+- La monitored line associée à la contrainte est en outage du 5 octobre au 5 novembre.
+- La contrainte semble binder à cause des outages 2326 BEACN_FL ~115KV-OXFORD ~115KV-1 (qui dure du 27 octobre au 26 novembre, eqkey 1319) et 2322 S_NAUGTK ~115KV-TOWANTIC (7-26 novembre, eqkey 1142) de même que la génération de l'unité 225 CPC Towantic. Cette dernière était prévue de possiblement être en outage, mais ça ne semble pas avoir été le cas. Elle a donc généré et contribué au binde de la contrainte.
+- De manière générale, la contrainte va binder à cause d'outages et la génération de l'unité 225 CPC Towantic. Si l'unité CPC Towantic est en outage, il n'a aucune manière que la contrainte binde.
 
 ```{python}
 # | echo: false
 
 cu.get_all_cstr_data(pool_id,
-                      300001083,
+                      30001083,
                       ftrstartdate,
                       ftrenddate,
                       histostartdate,
@@ -733,101 +757,6 @@ cu.get_all_cstr_data(pool_id,
 
 ```
 </details>
-
-
-<details>
-  <summary> GRAHAM66BHEALN </summary>
-
-**Infos :**
-
-- CID_MAG: 30000052
-- CID_CES: 610094
-- CES_NAME = 'GRAHAM_66BHE_A_LN:205'
-- CONTINGENCYNAME: 205
-- Elle a bindé en RT le 1 (-8.53), 4 (-77.79), 6 (-74.37), 18 (-30.43), ... (-...) et ... (-...).
-- Elle a bindé au DAM le 1 (-166.03), 4 (-30.96), 6 (-29.04), 18 (-6.76), ... (-...) et ... (-...).
-
-
-**Analyse :**
-
-- La contrainte semble binder à cause de la génération de vent (15673 Downeast Wind, 18033 Weaver Wind Maine, 18026 Hancock Wind ME).
-<!-- - La contrainte est en contact avec le Nouveau-Brunswick. Généralement, le Maine importe de l'électricité du NB, mais dans ce cas s'était l'inverse. Cette importation était à cause de l'outage de maintenance du Point Lepreau Nuclear Generating Station de la centrale nucléair prévu durer pour 140 jours (mi-juillet à décembre): https://www.919thebend.ca/2025/07/13/point-lepreau-begins-140-day-outage-on-monday/# -->
-
-- Il a ces outages de lignes et de transformateurs dans le coin, en plus de plusieurs outages de breakers:
-
-```{python}
-# | echo: false
-data = [
-{
-"Source": "NEISO",
-"Equipment": "ORRINGTN 13 KV XFMR F",
-"Type": "XFMR",
-"KV": 13,
-"Start": "11/17/2025 10:07",
-"End": "11/20/2025 15:38",
-"Planned Start": "11/17/2025 08:00",
-"Planned End": "11/21/2025 15:00",
-},
-{
-"Source": "NEISO",
-"Equipment": "ORRINGTN 115 KV XFMR E",
-"Type": "XFMR",
-"KV": 13,
-"Start": "11/17/2025 10:07",
-"End": "11/20/2025 15:38",
-"Planned Start": "11/17/2025 08:00",
-"Planned End": "11/21/2025 15:00",
-},
-{
-"Source": "NEISO",
-"Equipment": "ORRINGTN 345 KV XFMR D",
-"Type": "XFMR",
-"KV": 13,
-"Start": "11/17/2025 10:07",
-"End": "11/20/2025 15:38",
-"Planned Start": "11/17/2025 08:00",
-"Planned End": "11/21/2025 15:00",
-},
-{
-"Source": "NEISO",
-"Equipment": "ORRINGTN 345 KV LINE 3023_SC",
-"Type": "LINE",
-"KV": 115,
-"Start": "11/17/2025 08:51",
-"End": "11/22/2025 15:53",
-"Planned Start": "11/17/2025 08:00",
-"Planned End": "11/21/2025 16:00",
-},
-]
-
-df = pd.DataFrame(data)
-display(df)
-
-
-# display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\KCW_9Oct.png"))
-```
-
-```{python}
-# | echo: false
-
-cu.get_all_cstr_data(pool_id,
-                      30000052,
-                      ftrstartdate,
-                      ftrenddate,
-                      histostartdate,
-                      histoenddate,
-                      scenario_flows,
-                      scenario_first_priority,
-                      scenario_sf,
-                      scenario_histo_sp,
-                      conn
-                      )
-
-```
-</details>
-
-
-
 
 ## 𝄜 Retour sur les contraintes du pré-bid
 ```{python}
@@ -837,91 +766,91 @@ data = [
     {
         "CID_CES": 611255,
         "Nom": "BUNKR_HL_1029-2_A_LN:1789",
-        "Binde": "",
+        "Binde": "Oui, -1960.04$ au RT et -762.62$ au DAM",
         "Potentiel":"1/5",
-        "Outage": ("Oui;"
-              " 1) Ligne: STEVENSN 115 KV LINE 1232, Du 6 au 13 nov (Interim Approved);"
-              " 2) Ligne: BEACN_FL 115 KV LINE 1319, du 27 oct au 26 nov (Interim Approved);"
-              " 3) Ligne: S_NAUGTK 115 KV LINE 1142, du 19 oct au 26 novembre (Interim Approved);"
-              " A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+        "Outage": (
+              " Oui, 1) Ligne: STEVENSN 115 KV LINE 1232, Du 6 au 13 nov (Interim Approved);"
+              " Oui, 2) Ligne: BEACN_FL 115 KV LINE 1319, du 27 oct au 26 nov (Interim Approved);"
+              " Oui, 3) Ligne: S_NAUGTK 115 KV LINE 1142, du 19 oct au 26 novembre (Interim Approved);"
+              " Non, A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
         ),
     },
     {
         "CID_CES": 1113,
         "Nom": "Down East Export (DNEAST)",
-        "Binde": "",
+        "Binde": "Oui, -2013.55$ au RT et -1410.31$ au DAM pour le mois.",
         "Potentiel":"2.5/5",
         "Outage": "",
     },
     {
         "CID_CES": 1132,
         "Nom": "Down East Wind Generation (DNEW)",
-        "Binde": "",
+        "Binde": "Non",
         "Potentiel":"2.5/5",
         "Outage": "",
     },
     {
         "CID_CES": 611264,
         "Nom": "EPPING_T_59BHE-2_A_LN:51BHE",
-        "Binde": "",
+        "Binde": "Oui, -5.37$ au DAM pour le mois.",
         "Potentiel":"2.5/5",
         "Outage": "",
     },
     {
         "CID_CES": 501174,
         "Nom": "FRSTBRDG_1445_A_LN:1340",
-        "Binde": "",
+        "Binde": "Non",
         "Potentiel":"1/5",
         "Outage": "",
     },
     {
         "CID_CES": 610094,
         "Nom": "GRAHAM_66BHE_A_LN:205",
-        "Binde": "",
+        "Binde": "Oui, -232.79$ au RT et -191.12$ au DAM pour le mois.",
         "Potentiel":"2.5/5",
         "Outage": "",
     },
     {
         "CID_CES": 22000048,
         "Nom": "NORWALKH_602_A_LN:ACTUAL",
-        "Binde": "",
+        "Binde": "Non",
         "Potentiel":"0.5/5",
-        "Outage": ("Oui;"
-              " 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
-              " A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+        "Outage": (
+              " Oui, 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
+              " Non, A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
         ),
     },
     {
         "CID_CES": 22000047,
         "Nom": "NORWALKH_603_A_LN:ACTUAL",
-        "Binde": "",
+        "Binde": "Non",
         "Potentiel":"0.5/5",
-        "Outage": ("Oui;"
-              " 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
-              " A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+        "Outage": (
+              " Oui, 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
+              " Non, A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
         ),
     },
     {
         "CID_CES": 501284,
         "Nom": "SALISBRY_690/FV_A_LN:ACTUAL",
-        "Binde": "",
+        "Binde": "Oui, -3771.96$ au DAM pour le mois.",
         "Potentiel":"2/5",
-        "Outage": ("Oui;"
-              " 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
-              " A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+        "Outage": (
+              " Oui, 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
+              " Non, A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
         ),
     },
     {
         "CID_CES": 1055,
         "Nom": "WHITEFIELD SOUTH & GRPW (WTS+GR)",
-        "Binde": "",
+        "Binde": "Non",
         "Potentiel":"1/5",
         "Outage": "LITTLETN 115 KV LINE U199, du 27 oct au 8 nov (Interim Approved)",
     },
     {
         "CID_CES": 1080,
         "Nom": "Burgess Generation (BURG)",
-        "Binde": "",
+        "Binde": "Oui, -15251.69$ en RT et -14037.50$ au DAM pour le mois.",
         "Potentiel":"3/5",
         "Outage": "BERLN_NH 115 KV LINE S136: WHITEFLD, du 9 au 26 nov (Interim Approved)"
     }

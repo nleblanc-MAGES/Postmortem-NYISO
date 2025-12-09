@@ -1,0 +1,368 @@
+---
+title: "Postmortem NYPP Octobre 2025"
+author: "Nicolas Leblanc"
+date: today
+toc: true
+jupyter: python3
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    grid:
+    #   margin-width: 0px  # Reduces side margins
+      body-width: 1400px  # Adjusts main content width (default is ~800px)
+execute:
+  echo: true  # Keep code visible by default
+  code-tools: true  # Add show/hide button for each code block
+
+---
+
+## 🛠️ Points à discuter et Projets
+
+- Application des prébis, accessible via l'url : https://bidanalysis.magitdev.com/.
+
+
+<!-- Importation des librairies et initalisation de la connection -->
+```{python}
+#| code-fold: true
+# Import necessary libraries
+from services import snowflake_queries as sq
+from components import graph_utils as gu, constraint_utils as cu
+import plotly.graph_objects as go
+from services.database_connection import init_connection
+from itables import show, JavascriptFunction
+import ipywidgets as widgets
+from IPython.display import Image, display
+import pandas as pd
+conn=init_connection()
+```
+
+## 📈 Evolution de la load et du vents
+- le monthly estime généralement une load plus forte que le daily.
+- La génération totale est cyclique.
+
+```{python}
+#| code-fold: true
+
+market = 'NYPP'
+start_date = '2025-10-01'
+end_date = '2025-10-31'
+
+df_Load=sq.get_Load([f'{market}_1DA_Default', f'{market}_1MA_Default', f'{market}_1MA_LoadMin',f'{market}_1MA_LoadMax']
+                  ,'2020-01-01'
+                  ,end_date
+                  ,conn
+                  )
+```
+
+- La génération de vent n'est pas cyclique.
+<!-- - Le monthly et le daily pour le vent sont similaires -->
+
+```{python}
+#| code-fold: true
+df_Wind=sq.get_Wind([f'{market}_1DA_Default',f'{market}_1MA_Default',f'{market}_1MA_WindMin',f'{market}_1MA_WindMax']
+                  ,'2020-01-01'
+                  ,end_date
+                  ,conn
+                  )
+
+gu.create_graph_load(df_Load,'TOTAL',start_date,end_date)
+gu.create_graph_wind(df_Wind,start_date,end_date)
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+#| code-fold: true
+
+df_PM=sq.get_PostMortem(1
+                        ,start_date
+                        ,end_date
+                        ,[f'{market}_1MA_Default', f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgSP',
+                        f'{market}_1DA_Default', f'{market}_1DA_AvgHistSP', f'{market}_1DA_DL_AvgSP',]
+                        ,conn)
+
+df_PM.fillna(0,inplace=True)
+exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# Apply formatting to all other columns
+for col in df_PM.columns:
+    if col not in exclude_columns:
+        df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+# Apply formatting to all other numeric columns
+
+
+show(df_PM,
+    classes="compact",
+    column_filters="header", 
+    layout={"topEnd": None}, 
+    style="font-size: 12px;",
+    )
+```
+
+**Contraintes en double :**
+
+- Il a des doublons dans des contraintes (même CONSTRAINT_NAME, CONTINGENCYNAME, et SP_DA), mais CID_MAG et CID_CES différents. Il a la contrainte  de nom et de contingence , puis contrainte de nom  et de contingence BASE CASE.
+
+```{python}
+# | echo: false
+data = [
+{
+"Constraint name": "SCRIBA 345 VOLNEY 345 1:SCRIBA__-VOLNEY___345_21",
+"Contingency name": "SCRIBA__-VOLNEY___345_21"
+},
+{
+"Constraint name": "NEWBRDGE 138 STEWRTAV 138 3: BASE CASE",
+"Contingency name": "BASE CASE"
+},
+{
+"Constraint name": "N.TROY 115 SYCAWAY 115 1:BUS:ALPS 1 & 6 & 393",
+"Contingency name": "BUS:ALPS 1 & 6 & 393"
+},
+# {
+# "Constraint name": "",
+# "Contingency name": ""
+# },
+# {
+# "Constraint name": "",
+# "Contingency name": ""
+# },
+]
+
+df = pd.DataFrame(data)
+display(df)
+```
+
+### Statistiques scénarios Monthly:
+- 1MA_Default: 2/5
+- 1MA_AvgHistSP: 4/5
+- 1MA_DL_AvgSP: 4/5
+- La combinaison capte: 4/5
+
+### Statistiques scénarios Daily:
+- 1DA_Default: 2/5
+- 1DA_AvgHistSP: 4/5
+- 1DA_DL_AvgSP: 5/5
+- La combinaison capte: 5/5
+
+### Comparaison avec les top contraintes de Yes
+```{python}
+# | echo: false
+display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NYISO\TopContraintesDansYesOct2025_NYISO.png"))
+```
+
+<!-- **Problèmes avec les SP de l'interface de Yes :**
+
+- Il a une différence entre le shadow price pour la contrainte de nom SCH - HQ CEDARS et de contingence BASE CASE dans la BD de Yes (-274.74$ pour Yes et -275$ dans les DA des simulations de Dayzer) et le site web de Yes (875.40$). Il semble donc avoir un bug avec l'interface de Yes. Une autre information super importante est que cette contrainte bind dans le positif et dans le négatif!
+- Il a le même problème avec la contrainte de nom N.TROY 115 SYCAWAY 115 1:BUS:ALPS 1 & 6 & 393 et de contingence BUS:ALPS 1 & 6 & 393. On a un SP de -2153.24$ dans la BD de Yes et un SP de -1254$ dans les simulations DA de Dayzer.
+- Même chose pour la contrainte de nom GOETHALS-GOWANUS 345KV 1 et de contingence	BASE CASE. On a un SP de 1965.23$ dans la BD de Yes et un SP de 1965$/1611$ (la contrainte est répétée…) dans les simulations DA de Dayzer. -->
+
+## 🕵️ Analyses des contraintes
+```{python}
+#| code-fold: true
+
+# paramètres généraux
+pool_id=1
+ftrstartdate=start_date
+ftrenddate=end_date
+histostartdate=start_date
+histoenddate=end_date
+scenario_flows=[f'{market}_1MA_Default',f'{market}_1DA_Default',f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgtSP' ]
+scenario_first_priority=f'{market}_1DA_Default'
+scenario_sf=[f'{market}_1MA_Default',f'{market}_1DA_Default']
+scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
+                    f'{market}_1MA_AvgHistSP',
+                    f'{market}_1MA_DL_AvgtSP'
+                    ]
+```
+
+<details>
+  <summary> ASTANNEX-ASTORIAE 138KV 1 </summary>
+
+**Infos :**
+
+- CID_MAG: 10001968
+- CID_CES: 201140
+- CES_NAME = 'ASTANNEX-ASTORIAE 138KV 1'
+- CONTINGENCYNAME: BASE CASE
+- En RT, la contrainte a bindé en début octobre du 2 au 4 oct (1: 146.42, 2: 13.89, 3: 278.20, 4: 11.37) 
+- Au DAM, elle a bindé du 1-19 oct (max en || de 423.65) et du 25-28 (max en || de 364.62)
+
+
+**Analyse :**
+
+- Dans le scénario 1DA_Default, la contrainte semble avoir bindé à cause de la source de génération non renouvelable provenant de sources telles que SCS Astoria Energy 2.
+- Pour le scénario 1MA_DL_AvgSP, elle bindait parfois à cause de la production non renouvelable.
+- Dans les scénarios 1MA_Default et 1MA_DL_AvgSP, la contrainte bindait parfois, mais pour très peu, et elle binde à cause des virtual imports et exports (loopflows).
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001968,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary> SCRIBA 345 VOLNEY 345 1:SCRIBA__-VOLNEY___345_21
+</summary>
+
+**Infos :**
+
+- CID_MAG: 10000210
+<!-- et 10000422 -->
+- CID_CES: 301117 
+<!-- et 309877 -->
+- CES_NAME = 'SCRIBA__-VOLNEY___345_20:SCRIBA__-VOLNEY___345_21_(25204)'
+- CONTINGENCYNAME: SCRIBA__-VOLNEY___345_21
+- En RT, la contrainte a bindé du 1-3 (max en || de 489.99), 5-7 (max en || de 1042.04), 19-21 (max en || de 104.17) et le 29 oct (0.53).
+- Au DAM, elle contrainte a bindé du 1-6 (max en || de 647.39), le 13 (1080.45), du 18-26 (max en || de 219.34), le 28 (2.34) et le 30 (215.99).
+
+**Analyse :**
+
+- L’outage CLAY 345 KV -> INDPDNCE 345 KV (25858). Elle est en outage du 15 septembre au 6 octobre selon le 1DA dans Dayzer, le 1MA_Default de Dayzer pensait qu’elle allait commencer le 22 septembre. Cet outage redirige 9-11% de ses flows sur la contrainte du sûrement au fait que l'outage empêche la transmission de la production de la génératrice Sithe Independent Station.
+- La contrainte elle-même est tombée en outage du 16-18 septembre, elle aurait sûrement continué de binder sinon.
+- La contrainte est affectée par le même outage. L’outage redigire 17.1-20.5% de ses flows vers la contrainte. À l’inverse la contrainte de ci-dessus, les flows montrent clairement que la contrainte binde surtout à cause de la génération non renouvelable et de la load pour les scénarios 1DA_DL_AvgSP et 1MA_DL_AvgSP.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10000210,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>ELWOOD 69 PULASKLI 69 1:TWR:HOLBROOK 881 & 882</summary>
+
+**Infos :**
+
+- CID_MAG: 10001620
+- CID_CES: 311310 
+- CES_NAME = 'ELWOOD 69 PULASKLI 69 1:TWR:HOLBROOK 881 & 882'
+- CONTINGENCYNAME: TWR:HOLBROOK 881 & 882
+- En RT, la contrainte a bindé le plus le 3 (-1202.72), 9 (-1227.64) et 30 (-1065.08).
+- Au DAM, elle a bindé du 1-2, 4-10 (max en || de -449.09), 21-27 (max en || de -589.46) et 30-31 (max en || de -274.68).
+
+**Analyse :**
+
+- Dans le 1MA_Default, l'outage de ligne HOLBROOK 138 KV -> RONKOKMA 138 KV (25541) était planifié commencer le 6 octobre et de durer jusqu'au 21 novembre. En réalité, l'outage a commencé le 29 septembre. Dans le 1DA_Default, l'outage commence a la bonne date de début, mais il semble avoir une pause de l'outage du 1-3 oct.
+- Cet outage semble fortement impacter la contrainte.
+- Pour le scénario 1MA_DL_AvgSP: La contrainte binde à cause de la production non renouvelable, le vent et les imports/exports.
+- Avant le 21 octobre pour le scénario 1DA_DL_AvgSP: La contrainte a peut-être bindé à cause de la load (NY Long Island) avec les imports/exports (CROSS SOUND NY) et de la génération non renouvelable qui soulageaient.
+- Après le 21 octobre pour le scénario 1DA_DL_AvgSP: La contrainte a peut-être bindé à cause d'une combinaison des imports/exports (CROSS SOUND NY), de la génération non renouvelable (Caithness_CC_1) et du vent (South Fork Offshore Wind) avec la load qui soulageait.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001620,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+<details>
+  <summary>GREENBSH 115 REGENRON 115 1:SCB:KNICRBKR(R2):6&2&Y57</summary>
+
+**Infos :**
+
+- CID_MAG: 10001522
+- CID_CES: 311130 
+- CES_NAME = 'GREENBSH 115 REGENRON 115 1:SCB:KNICRBKR(R2):6&2&Y57'
+- CONTINGENCYNAME: BASE CASE
+- En RT, la contrainte a bindé le 6 octobre (204.94).
+- Au DAM, elle a bindé du 5-8 (992.21, 929.42, 703.19, 122.28) et 21 octobre (10.66).
+
+**Analyse :**
+
+- En se basant sur le scénario 1DA_Default, la contrainte a possiblement bindé à cause de la load provenant de source comme 71201 NY Capital et de la production non renouvelable.
+- Le scénario 1DA_DL_AvgSP prédit que la contrainte va binder majoritairement à cause de la load, des imports/exports et de la génération non renouvelable (en ordre d'importance). La contrainte binde à cause du changement de limite faite par le scénario.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001522,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+
+
+<details>
+  <summary>MEYER 230 MEYER 1 1:SCB:STONYRDG(72/B102)72&BK1</summary>
+
+**Infos :**
+
+- CID_MAG: 10001654
+- CID_CES: 4500019 
+- CES_NAME = 'MEYER 230 MEYER 1 1:SCB:STONYRDG(72/B102)72&BK1'
+- CONTINGENCYNAME: SCB:STONYRDG(72/B102)72&BK1	
+- En RT, la contrainte a bindé le 10 (11.17), du 19-21 (16.58, 932.38, 184.65), 23 (16.06), 28 (29.66) et du 30-31 octobre (174.77, 2808.83).
+- Au DAM, elle a bindé du 19-22 (153.48, 331.24, 155.35, 225.14) et du 29-31 octobre (14.35, 105.32, 1299.19).
+
+**Analyse :**
+
+- Les scénarios 1_MA_DL_AvgSP et 1DA_DL_AvgSP prédisent que la contrainte va binder majoritairement à cause du vent et de l'hydro.
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      10001654,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details> 
+

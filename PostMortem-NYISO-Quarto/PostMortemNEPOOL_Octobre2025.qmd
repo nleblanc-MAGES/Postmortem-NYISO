@@ -390,8 +390,10 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
-- Il n'est pas clair pourquoi la contrainte binde le 9 octobre. Peut-être la génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde.
-- Le 9 octobre, il avait les outages suivants dans le coin. Ceux-ci ne semblent pas impacter la contrainte. Le K42S-1, K42-2, K42SA et K42-3 étaient absents des monthlys. Ils étaient tous présents dans les 1DA_Default.
+- Dans dayzer, on ne voit pas clairement pourquoi la contrainte binde le 9 octobre.
+- Il se peut que la génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde.
+- Il a ces outages dans le coin le 9 octobre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte dans dayzer, mais la contrainte est reconnu pour binder à cause d'outages et de la génération. Ceux-ci ne semblent pas impacter la contrainte. Le K42S-1, K42-2, K42SA et K42-3 étaient absents des monthlys. Ils étaient tous présents dans les 1DA_Default.
+
 ```{python}
 # | echo: false
 data = [
@@ -444,8 +446,10 @@ display(df)
 display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\KCW_9Oct.png"))
 ```
 
-- Il n'est pas clair pourquoi la contrainte binde le 13 octobre. Peut-être la génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde.
-- Le 13 octobre, il avait ces outages dans le coin. Ceux-ci ne semblent pas impacter la contrainte. Le K46-2 et H15 étaient absents des monthlys. Ils étaient tous présents dans les 1DA_Default.
+- Dans dayzer, on ne voit pas clairement pourquoi la contrainte binde le 13 octobre.
+- Il se peut que la génération du 18014 Kingdom Community Wind a possiblement contribué à ce que la contrainte binde.
+- Il a ces outages dans le coin le 13 octobre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte dans dayzer, mais la contrainte est reconnu pour binder à cause d'outages et de la génération. Ceux-ci ne semblent pas impacter la contrainte. Le K46-2 et H15 étaient absents des monthlys. Ils étaient tous présents dans les 1DA_Default.
+
 ```{python}
 # | echo: false
 data = [
@@ -505,15 +509,17 @@ cu.get_all_cstr_data(pool_id,
 
 - CID_MAG: 30002894
 - CID_CES: 1082
-- CES_NAME = 'SHEF'
+- CES_NAME = 'Sheffield Generation (SHEF)'
 - CONTINGENCYNAME: INTERFACE
 - La contrainte a bindé en RT le 9 (-1902.70) octobre.
 - Elle a bindé au DAM le 9 (-750.24) et 13 (-986.01).
 
 **Analyse :**
 
-- Il n'est pas clair pourquoi la contrainte binde le 9 octobre. Peut-être la génération du 18008 Sheffield Wind Plant a possiblement contribué à ce que la contrainte binde.
-- Le 9 octobre, il avait les outages suivants dans le coin. Ceux-ci ne semblent pas impacter la contrainte. Le K42S-1, K42-2, K42SA et K42-3 étaient absents des monthlys, mais le U199 était présent. Ils étaient tous présents dans les 1DA_Default.
+- Dans dayzer, on ne voit pas clairement pourquoi la contrainte binde le 9 octobre.
+- Il se peut que la génération du 18008 Sheffield Wind Plant a possiblement contribué à ce que la contrainte binde.
+- Il a ces outages dans le coin le 9 octobre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte dans dayzer, mais la contrainte est reconnu pour binder à cause d'outages et de la génération. Ceux-ci ne semblent pas impacter la contrainte. Le K42S-1, K42-2, K42SA et K42-3 étaient absents des monthlys, mais le U199 était présent. Ils étaient tous présents dans les 1DA_Default.
+
 ```{python}
 # | echo: false
 data = [
@@ -574,10 +580,12 @@ display(df)
 
 
 display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 NEPOOL\SHEF_9Oct.png"))
-```
+``` 
 
-- Il n'est pas clair pourquoi la contrainte binde le 13 octobre. Peut-être la génération du 18008 Sheffield Wind Plant a possiblement contribué à ce que la contrainte binde.
-- Le 13 octobre, il avait ces outages dans le coin. Ceux-ci ne semblent pas impacter la contrainte. Le K46-2 et H15 étaient absents des monthlys, mais le X22 était présent. Ils étaient tous présents dans les 1DA_Default.
+- Dans dayzer, on ne voit pas clairement pourquoi la contrainte binde le 13 octobre.
+- Il se peut que la génération du 18008 Sheffield Wind Plant a possiblement contribué à ce que la contrainte binde.
+- Il a ces outages dans le coin le 13 octobre. Ceux-ci ne semblent pas avoir d'effets sur la contrainte dans dayzer, mais la contrainte est reconnu pour binder à cause d'outages et de la génération. Ceux-ci ne semblent pas impacter la contrainte. Le K46-2 et H15 étaient absents des monthlys, mais le X22 était présent. Ils étaient tous présents dans les 1DA_Default.
+
 ```{python}
 # | echo: false
 data = [
@@ -648,12 +656,14 @@ cu.get_all_cstr_data(pool_id,
 - CES_NAME = 'Reenergy Stratton Generation (STRA)'
 - CONTINGENCYNAME: INTERFACE
 - Il manquait le mapping entre la contrainte dans Dayzer et dans Yes, donc on l'a ajouté.
-- La contrainte a bindé au DAM en septembre pour 56.40$. En octobre, elle a bindé pour 889.52$ en RT et 1225.63$ au DAM.
+- La contrainte a bindé en RT le 2 (18.13) et du 4-7 (-134.58, -304.16, -280.99, -151.64) octobre.
+- La contrainte a bindé au DAM en septembre pour -56.40$. En octobre, elle a bindé au DAM du 2-3 (-73.02, -5.35), 5-10 (-138.51, -316.13, -282.28, -149.11, -67.04, -78.57) et le 24 (-115.54) novembre.
 
 
 **Analyse :**
 
 - La contrainte semble binder à cause de la production non renouvelable (REENERGY STRATTON).
+- Il ne semble pas avoir d'outages qui auraient pu contribué au binde de la contrainte.
 
 ```{python}
 # | echo: false
@@ -692,6 +702,7 @@ cu.get_all_cstr_data(pool_id,
 **Analyse :**
 
 - La contrainte semble binder à cause de la génération de vent (15673 Downeast Wind, 18033 Weaver Wind Maine, 18026 Hancock Wind ME).
+- L'effet de l'outage nucléaire au Nouveau-Brunswick mentionné dans le PM de setembre n'est pas clair.
 <!-- - La contrainte est en contact avec le Nouveau-Brunswick. Généralement, le Maine importe de l'électricité du NB, mais dans ce cas s'était l'inverse. Cette importation était à cause de l'outage de maintenance du Point Lepreau Nuclear Generating Station de la centrale nucléair prévu durer pour 140 jours (mi-juillet à décembre): https://www.919thebend.ca/2025/07/13/point-lepreau-begins-140-day-outage-on-monday/# -->
 
 ```{python}
@@ -730,6 +741,7 @@ cu.get_all_cstr_data(pool_id,
 
 - Le 9 octobre, la contrainte semble avoir bindé à cause de la génération non renouvelable (Seabrook, MILLSTONE POINT 3, MILLSTONE POINT 2, KLEEN ENERGY) et de la load (Vermot Zone).
 - Dans le coin le 9 octobre, il avait ces outages. Ils étaient absents des monthlys mais présents dans les dailys. Ils ne semblent pas avoir d'effet sur la contrainte.
+
 ```{python}
 # | echo: false
 data = [
@@ -885,9 +897,9 @@ cu.get_all_cstr_data(pool_id,
 
 **Infos :**
 
-- CID_MAG: ...
-- CID_CES: ...
-- CES_NAME = '...'
+- CID_MAG: 30003034
+- CID_CES: 4500010
+- CES_NAME = 'ORRINGTN249ALN'
 - CONTINGENCYNAME: 248
 - Elle ne semble pas binder en RT (elle n'existe pas dans Yes pour le RT).
 - Elle a bindé au DAM le 20 (-268.45), 21 (-232.04) et 24 (-40.45) octobre.
@@ -895,6 +907,7 @@ cu.get_all_cstr_data(pool_id,
 
 **Analyse :**
 
+- La contrainte était manquante dans dayzer. On l'a ajouté au modèle le 2 décembre 2025. Ceci explique pourquoi aucun scénario a capté la contrainte (tous les SP sont 0). On a aussi ajouté les contraintes ORRINGTN248ALN de contingence 249 (CID_MAG: 30003035, CID_CES: 4500011) et BULL_HL93BHE_OLDALN	de contingence 59BHE (CID_MAG: 30003036, CID_CES: 4500012).
 
 ```{python}
 # | echo: false
@@ -929,9 +942,24 @@ display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 N
 
 ```
 
+```{python}
+# | echo: false
 
-</details> 
+cu.get_all_cstr_data(pool_id,
+                      30003034,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
 
+```
+</details>
 
 <details>
   <summary> KR-EXP </summary>
@@ -949,7 +977,8 @@ display(Image("H:\GitHub\Postmortem-NYISO\PostMortem-NYISO-Quarto\Octobre 2025 N
 **Analyse :**
 
 - La contrainte semble avoir bindé à cause de la génération de vent (ROLLINS WIND PLANT, STETSON WIND FARM, et STETSON II WIND FARM) et d'hydro (Greatlakes Millinocket Hydro).
-- Il a l'outage suivant dans le coin, mais il ne semble pas affecter la contrainte:
+- Il a l'outage suivant dans le coin, mais il ne semble pas affecter la contrainte dans dayzer.
+
 ```{python}
 # | echo: false
 data = [

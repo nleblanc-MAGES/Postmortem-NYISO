@@ -103,7 +103,9 @@ def hourly_figure(
                                )
     # Add category traces
     first_scenario=True
+    
     for scenario in sorted(df_categories['SCENARIONAME'].unique()):
+        
         add_category_hourly_traces(fig
                      ,df_categories
                      ,scenario
@@ -255,6 +257,9 @@ def add_category_hourly_traces(fig: go.Figure
     """
     Adds traces for categories (Hydro, Wind, Load, Solar, etc.) to the figure.
     """
+
+    # display(df)
+
     categories = ['HYDRO', 'WIND', 'LOAD', 'SOLAR', 'OTHERS_UNITS', 'IE', 'GEO','INDL_LOAD']
     colors = ['lightblue', 'lightgreen', 'lightpink', 'orange', 'lightgrey', 'purple', 'brown','#d62728']
     scenariotype=scenario_to_trace.split("_",1)[1] #Recupérer juste le produit type
