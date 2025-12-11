@@ -119,23 +119,43 @@ df_metriques = df_metriques[df_metriques["SCENARIONAME"].isin(scenarios)]
 
 metric = "PCT_CAPTE_DU_SP_TOTAL_CUTOFF"
 
-plt.figure(figsize=(12, 6))
+# plt.figure(figsize=(12, 6))
+
+# for scenario in scenarios:
+#     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+#     plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+# plt.title(metric)
+# plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+# plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+# plt.legend()
+# plt.grid(True)
+# ax = plt.gca()
+# ax.xaxis.set_major_locator(mdates.MonthLocator())
+# ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+# plt.xticks(rotation=45)
+# plt.show()
+
+fig = go.Figure()
 
 for scenario in scenarios:
     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
-    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+    fig.add_trace(go.Scatter(
+        x=temp["FTRDATE"],
+        y=temp[metric],
+        mode="lines",
+        name=scenario
+    ))
 
-plt.title(metric)
-plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
-plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
-plt.legend()
-plt.grid(True)
-ax = plt.gca()
-ax.xaxis.set_major_locator(mdates.MonthLocator())
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-plt.xticks(rotation=45)
-plt.show()
-    
+fig.update_layout(
+    title=metric,
+    xaxis_title="Date",
+    yaxis_title="PCT (%)",
+    template="plotly_white"
+)
+
+fig.show()
+
 ```
 
 ### PCT_FP_SUP_CUTOFF_DZR
@@ -147,22 +167,42 @@ plt.show()
 
 metric = "PCT_FP_SUP_CUTOFF_DZR"
 
-plt.figure(figsize=(12, 6))
+fig = go.Figure()
 
 for scenario in scenarios:
     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
-    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+    fig.add_trace(go.Scatter(
+        x=temp["FTRDATE"],
+        y=temp[metric],
+        mode="lines",
+        name=scenario
+    ))
 
-plt.title(metric)
-plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
-plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
-plt.legend()
-plt.grid(True)
-ax = plt.gca()
-ax.xaxis.set_major_locator(mdates.MonthLocator())
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-plt.xticks(rotation=45)
-plt.show()
+fig.update_layout(
+    title=metric,
+    xaxis_title="Date",
+    yaxis_title="PCT (%)",
+    template="plotly_white"
+)
+
+fig.show()
+
+# plt.figure(figsize=(12, 6))
+
+# for scenario in scenarios:
+#     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+#     plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+# plt.title(metric)
+# plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+# plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+# plt.legend()
+# plt.grid(True)
+# ax = plt.gca()
+# ax.xaxis.set_major_locator(mdates.MonthLocator())
+# ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+# plt.xticks(rotation=45)
+# plt.show()
     
 ```
 
@@ -175,22 +215,42 @@ plt.show()
 
 metric = "AVG_ERR_ABS_TP"
 
-plt.figure(figsize=(12, 6))
+# plt.figure(figsize=(12, 6))
+
+# for scenario in scenarios:
+#     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+#     plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+# plt.title(metric)
+# plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+# plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+# plt.legend()
+# plt.grid(True)
+# ax = plt.gca()
+# ax.xaxis.set_major_locator(mdates.MonthLocator())
+# ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+# plt.xticks(rotation=45)
+# plt.show()
+
+fig = go.Figure()
 
 for scenario in scenarios:
     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
-    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+    fig.add_trace(go.Scatter(
+        x=temp["FTRDATE"],
+        y=temp[metric],
+        mode="lines",
+        name=scenario
+    ))
 
-plt.title(metric)
-plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
-plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
-plt.legend()
-plt.grid(True)
-ax = plt.gca()
-ax.xaxis.set_major_locator(mdates.MonthLocator())
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-plt.xticks(rotation=45)
-plt.show()
+fig.update_layout(
+    title=metric,
+    xaxis_title="Date",
+    yaxis_title="PCT (%)",
+    template="plotly_white"
+)
+
+fig.show()
     
 ```
 
@@ -223,6 +283,36 @@ show(df_PM,
     layout={"topEnd": None}, 
     style="font-size: 12px;",
     )
+
+
+```
+
+```{python}
+#| code-fold: true
+
+display("df_PM", df_PM.columns)
+df_PM.columns = df_PM.columns.str.replace("'", "")
+display("df_PM", df_PM)
+
+def money_to_float(s):
+    return (
+        s.astype(str)              # <-- ensures .str works
+         .str.replace("$", "", regex=False)
+         .str.replace(",", "", regex=False)
+         .astype(float)
+    )
+
+# Convert money columns
+df_PM["SP_DA"] = money_to_float(df_PM["SP_DA"])
+df_PM["NEPOOL_1MA_Default"] = money_to_float(df_PM["NEPOOL_1MA_Default"])
+
+# True positives = both SP_DA and Default ≠ 0
+tp = df_PM[(df_PM["SP_DA"] != 0) & (df_PM["NEPOOL_1MA_Default"] != 0)]
+
+# TP-only average absolute difference
+result_tp = abs((tp["SP_DA"].abs() - tp["NEPOOL_1MA_Default"].abs()).mean())
+
+print("1MA_Default (TP only):", result_tp)
 
 
 ```

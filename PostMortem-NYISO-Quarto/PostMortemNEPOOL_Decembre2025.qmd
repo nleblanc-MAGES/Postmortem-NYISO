@@ -36,6 +36,8 @@ from IPython.display import Image, display
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from metriques.histogram_AvgAbsErrContribution import money_to_float, compute_tp_diff, plot_constraint_percent
+
 conn=init_connection()
 ```
 
@@ -119,22 +121,42 @@ df_metriques = df_metriques[df_metriques["SCENARIONAME"].isin(scenarios)]
 
 metric = "PCT_CAPTE_DU_SP_TOTAL_CUTOFF"
 
-plt.figure(figsize=(12, 6))
+# plt.figure(figsize=(12, 6))
+
+# for scenario in scenarios:
+#     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+#     plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+# plt.title(metric)
+# plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+# plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+# plt.legend()
+# plt.grid(True)
+# ax = plt.gca()
+# ax.xaxis.set_major_locator(mdates.MonthLocator())
+# ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+# plt.xticks(rotation=45)
+# plt.show()
+
+fig = go.Figure()
 
 for scenario in scenarios:
     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
-    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+    fig.add_trace(go.Scatter(
+        x=temp["FTRDATE"],
+        y=temp[metric],
+        mode="lines",
+        name=scenario
+    ))
 
-plt.title(metric)
-plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
-plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
-plt.legend()
-plt.grid(True)
-ax = plt.gca()
-ax.xaxis.set_major_locator(mdates.MonthLocator())
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-plt.xticks(rotation=45)
-plt.show()
+fig.update_layout(
+    title=metric,
+    xaxis_title="Date",
+    yaxis_title="PCT (%)",
+    template="plotly_white"
+)
+
+fig.show()
     
 ```
 
@@ -147,23 +169,43 @@ plt.show()
 
 metric = "PCT_FP_SUP_CUTOFF_DZR"
 
-plt.figure(figsize=(12, 6))
+# plt.figure(figsize=(12, 6))
+
+# for scenario in scenarios:
+#     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+#     plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+# plt.title(metric)
+# plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+# plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+# plt.legend()
+# plt.grid(True)
+# ax = plt.gca()
+# ax.xaxis.set_major_locator(mdates.MonthLocator())
+# ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+# plt.xticks(rotation=45)
+# plt.show()
+
+fig = go.Figure()
 
 for scenario in scenarios:
     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
-    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+    fig.add_trace(go.Scatter(
+        x=temp["FTRDATE"],
+        y=temp[metric],
+        mode="lines",
+        name=scenario
+    ))
 
-plt.title(metric)
-plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
-plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
-plt.legend()
-plt.grid(True)
-ax = plt.gca()
-ax.xaxis.set_major_locator(mdates.MonthLocator())
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-plt.xticks(rotation=45)
-plt.show()
-    
+fig.update_layout(
+    title=metric,
+    xaxis_title="Date",
+    yaxis_title="PCT (%)",
+    template="plotly_white"
+)
+
+fig.show()
+
 ```
 
 ### AVG_ERR_ABS_TP
@@ -175,22 +217,42 @@ plt.show()
 
 metric = "AVG_ERR_ABS_TP"
 
-plt.figure(figsize=(12, 6))
+# plt.figure(figsize=(12, 6))
+
+# for scenario in scenarios:
+#     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
+#     plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+
+# plt.title(metric)
+# plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
+# plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
+# plt.legend()
+# plt.grid(True)
+# ax = plt.gca()
+# ax.xaxis.set_major_locator(mdates.MonthLocator())
+# ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+# plt.xticks(rotation=45)
+# plt.show()
+
+fig = go.Figure()
 
 for scenario in scenarios:
     temp = df_metriques[df_metriques["SCENARIONAME"] == scenario]
-    plt.plot(temp["FTRDATE"], temp[metric], label=scenario)
+    fig.add_trace(go.Scatter(
+        x=temp["FTRDATE"],
+        y=temp[metric],
+        mode="lines",
+        name=scenario
+    ))
 
-plt.title(metric)
-plt.xlabel("Date", fontsize=14, fontweight="bold", labelpad=15)
-plt.ylabel("PCT (%)", fontsize=14, fontweight="bold", labelpad=15)
-plt.legend()
-plt.grid(True)
-ax = plt.gca()
-ax.xaxis.set_major_locator(mdates.MonthLocator())
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-plt.xticks(rotation=45)
-plt.show()
+fig.update_layout(
+    title=metric,
+    xaxis_title="Date",
+    yaxis_title="PCT (%)",
+    template="plotly_white"
+)
+
+fig.show()
     
 ```
 
@@ -226,6 +288,100 @@ show(df_PM,
 
 
 ```
+
+```{python}
+#| code-fold: true
+
+display("df_PM", df_PM.columns)
+df_PM.columns = df_PM.columns.str.replace("'", "")
+display("df_PM", df_PM)
+
+def money_to_float(s):
+    return (
+        s.astype(str)              # <-- ensures .str works
+         .str.replace("$", "", regex=False)
+         .str.replace(",", "", regex=False)
+         .astype(float)
+    )
+
+# Convert money columns
+df_PM["SP_DA"] = money_to_float(df_PM["SP_DA"])
+df_PM["NEPOOL_1MA_Default"] = money_to_float(df_PM["NEPOOL_1MA_Default"])
+
+# True positives = both SP_DA and Default ≠ 0
+tp = df_PM[(df_PM["SP_DA"] != 0) & (df_PM["NEPOOL_1MA_Default"] != 0)]
+
+# TP-only average absolute difference
+abs_diff_1MA_Default = (tp["SP_DA"].abs() - tp["NEPOOL_1MA_Default"].abs()).abs()
+
+display(abs_diff_1MA_Default)
+
+sum_diff_1MA_Default = abs_diff_1MA_Default.sum()
+
+mean_diff_1MA_Default = abs_diff_1MA_Default.mean()
+# result_tp = (tp["SP_DA"].abs() - tp["NEPOOL_1MA_Default"].abs()).abs().mean()
+
+display(abs_diff_1MA_Default/sum_diff_1MA_Default*100)
+
+print("1MA_Default (TP only):", mean_diff_1MA_Default)
+
+import plotly.express as px
+
+# Compute absolute difference series (you already have this)
+abs_diff_1MA_Default = (tp["SP_DA"].abs() - tp["NEPOOL_1MA_Default"].abs()).abs()
+
+# Add to tp dataframe for plotting
+tp = tp.copy()
+tp["abs_diff"] = abs_diff_1MA_Default
+tp["pct_diff"] = tp["abs_diff"] / tp["abs_diff"].sum() * 100
+
+# Set your constraint column name here:
+constraint_col = "CONSTRAINTNAME"   # <-- update if your column is named differently
+
+# Create bar chart
+fig = px.bar(
+    tp,
+    x=constraint_col,
+    y="pct_diff",
+    hover_data=["abs_diff", "SP_DA", "NEPOOL_1MA_Default"],
+    title="Percent Contribution by Constraint (abs_diff_1MA_Default)",
+)
+
+fig.update_layout(
+    xaxis_title="Constraint",
+    yaxis_title="% of Total Absolute Difference",
+    xaxis_tickangle=-45,    # rotate labels to avoid overlap
+    bargap=0.2,
+)
+
+fig.show()
+
+
+```
+
+```{python}
+#| code-fold: true
+
+
+
+
+constraint_col = "CONSTRAINTNAME"
+
+# 1) Default
+tp_default = compute_tp_diff(df_PM, "SP_DA", "NEPOOL_1MA_Default")
+plot_constraint_percent(tp_default, constraint_col, "1MA_Default")
+
+# 2) AvgHistSP scenario
+tp_avgHist = compute_tp_diff(df_PM, "SP_DA", "NEPOOL_1MA_AvgHistSP")
+plot_constraint_percent(tp_avgHist, constraint_col, "1MA_AvgHistSP")
+
+# 3) DL_AvgSP scenario
+tp_dl_avgSP = compute_tp_diff(df_PM, "SP_DA", "NEPOOL_1MA_DL_AvgSP")
+plot_constraint_percent(tp_dl_avgSP, constraint_col, "1MA_DL_AvgSP")
+
+
+```
+
 
 ### Contraintes manquantes et contrainte en double
 
@@ -338,6 +494,79 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
                     ]
 ```
 
+<details>
+  <summary> BERLN1771ALN </summary>
+
+**Infos :**
+
+- CID_MAG: 30000951
+- CID_CES: 611104
+- CES_NAME = 'BERLN1771ALN:ZB16'
+- CONTINGENCYNAME: ZB16
+- La contrainte a bindé tous les jours au RT du 4-25 novembre (le plus était le 23 pour 2387.60$).
+- Elle a bindé tous les jours au DAM du 6-26 novembre (le plus était le 12 pour 1190.15$).
+
+**Analyse :**
+
+- Il n'est pas clair dans dayzer pourquoi la contrainte binde, mais c'est probablement dû à la génération du 2087 Burgess BioPower et l'outage de ligne suivant dans le coin aient eu un effet. Les outages étaient présents dans les monthlys et les dailys.
+
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "BERLN_NH 115 KV LINE S136: WHITEFLD",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/09/2025 04:49",
+"End": "11/26/2025 ...",
+"Planned Start": "11/09/2025 04:30",
+"Planned End": "11/26/2025 19:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "WHITEFLD 115 KV BRKR S1360",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/09/2025 04:49",
+"End": "11/26/2025 ...",
+"Planned Start": "11/09/2025 04:30",
+"Planned End": "11/26/2025 19:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "WHITEFLD 115 KV BRKR 03601/03",
+"Type": "LINE",
+"KV": 115,
+"Start": "11/09/2025 04:49",
+"End": "11/26/2025 ...",
+"Planned Start": "11/09/2025 04:30",
+"Planned End": "11/26/2025 19:00",
+}
+]
+
+df = pd.DataFrame(data)
+display(df)
+```
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002892,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
 
 <details>
   <summary> BURG </summary>
@@ -839,95 +1068,212 @@ cu.get_all_cstr_data(pool_id,
 
 data = [
     {
+        "CID_CES": 611104,
+        "Nom": "BERLIN_1771_A_LN:ZB16",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"1.5/5",
+        "Outage": (
+              " ..., 1) Ligne: N_BLOOM 345 KV LINE 3642, du 5 au 10 décembre (Interim Approved)"
+        ),
+    },
+    {
+        "CID_CES": 4500004,
+        "Nom": "BERLIN1670-2ALN:ZB16",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"1/5",
+        "Outage": (
+              " ..., 1) Ligne: N_BLOOM 345 KV LINE 3642, du 5 au 10 décembre (Interim Approved)"
+        ),
+    },
+    {
         "CID_CES": 611255,
         "Nom": "BUNKR_HL_1029-2_A_LN:1789",
-        "Binde": "Oui, -1960.04$ au RT et -762.62$ au DAM",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
         "Potentiel":"1/5",
         "Outage": (
-              " Oui, 1) Ligne: STEVENSN 115 KV LINE 1232, Du 6 au 13 nov (Interim Approved);"
-              " Oui, 2) Ligne: BEACN_FL 115 KV LINE 1319, du 27 oct au 26 nov (Interim Approved);"
-              " Oui, 3) Ligne: S_NAUGTK 115 KV LINE 1142, du 19 oct au 26 novembre (Interim Approved);"
-              " Non, A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+              " Oui, 1) Ligne: BESECK 345 KV LINE 3827: BESECK, du 1er au 12 décembre 2025 (Interim Approved);"
+              " Oui, 2) Ligne: S_NAUGTK 115 KV LINE 1142, du 30 nov au 6 déc 2025 (Approved);"
+              " Oui, 3) Ligne: BEACN_FL 115 KV LINE 1808-1, du 1er au 12 décembre 2025 (Interim Approved)"
         ),
     },
     {
-        "CID_CES": 1113,
-        "Nom": "Down East Export (DNEAST)",
-        "Binde": "Oui, -2013.55$ au RT et -1410.31$ au DAM pour le mois.",
-        "Potentiel":"2.5/5",
-        "Outage": "",
-    },
-    {
-        "CID_CES": 1132,
-        "Nom": "Down East Wind Generation (DNEW)",
-        "Binde": "Non",
-        "Potentiel":"2.5/5",
-        "Outage": "",
-    },
-    {
-        "CID_CES": 611264,
-        "Nom": "EPPING_T_59BHE-2_A_LN:51BHE",
-        "Binde": "Oui, -5.37$ au DAM pour le mois.",
-        "Potentiel":"2.5/5",
-        "Outage": "",
-    },
-    {
-        "CID_CES": 501174,
+        "CID_CES": 611251,
         "Nom": "FRSTBRDG_1445_A_LN:1340",
-        "Binde": "Non",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"/5",
+        "Outage": (
+              " Oui, 1) Ligne: FRSTBRDG 115 KV LINE 1721: FRSTBRDG, du 8 au 23 déc 2025 (Interim Approved);"
+              " Oui, 2) Ligne: BESECK 345 KV LINE 3827: BESECK, du 1er au 12 décembre 2025 (Interim Approved);"
+              " Oui, 3) Ligne: OXFORD 115 KV LINE 1403, du 7 au 20 déc 2025 (Interim Approved)"
+        ),
+    },
+    {
+        "CID_CES": 611330,
+        "Nom": "SHAWS_HL_1272_A_LN:1340",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"/5",
+        "Outage": (
+              " Oui, 1) Ligne: FRSTBRDG 115 KV LINE 1721: FRSTBRDG, du 8 au 23 déc 2025 (Interim Approved);"
+              " Oui, 2) Ligne: BESECK 345 KV LINE 3827: BESECK, du 1er au 12 décembre 2025 (Interim Approved);"
+              " Oui, 3) Ligne: OXFORD 115 KV LINE 1403, du 7 au 20 déc 2025 (Interim Approved)"
+        ),
+    },
+    {
+        "CID_CES": 611258,
+        "Nom": "S_NAUGTK_1580_A_LN:1619",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
         "Potentiel":"1/5",
-        "Outage": "",
+        "Outage": (
+              " Oui, 1) Ligne: OXFORD 115 KV LINE 1403, du 7 au 20 déc 2025 (Interim Approved)"
+        ),
     },
     {
-        "CID_CES": 610094,
-        "Nom": "GRAHAM_66BHE_A_LN:205",
-        "Binde": "Oui, -232.79$ au RT et -191.12$ au DAM pour le mois.",
+        "CID_CES": 611410,
+        "Nom": "ALLINGS 115 KV LINE 8804A: WOODMONT",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"1/5",
+        "Outage": (
+              " Oui, 1) Ligne: ALLINGS 115 KV LINE 8804A: WOODMONT, entre le 1er octobre 2025 et le 6 mars 2026 (déjà actif);"
+              " Oui, 2) Ligne: BESECK 345 KV LINE 3827: BESECK, du 1er au 12 décembre 2025 (Interim Approved)"
+        ),
+    },
+    {
+        "CID_CES": 611310,
+        "Nom": "CROWLEYS_62_A_LN:3026",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"3/5",
+        "Outage": (
+              " Oui, 1) Ligne: KIMBL_RD 115 KV LINE KIMBL_RD 214-1 TO LOVELL (Interim Approved)"
+        ),
+    },
+    {
+        "CID_CES": 610873,
+        "Nom": "LARRABEE_64_A_LN:3026",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
         "Potentiel":"2.5/5",
-        "Outage": "",
-    },
-    {
-        "CID_CES": 22000048,
-        "Nom": "NORWALKH_602_A_LN:ACTUAL",
-        "Binde": "Non",
-        "Potentiel":"0.5/5",
         "Outage": (
-              " Oui, 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
-              " Non, A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+              " Oui, 1) Ligne: KIMBL_RD 115 KV LINE KIMBL_RD 214-1 TO LOVELL (Interim Approved)"
         ),
     },
     {
-        "CID_CES": 22000047,
-        "Nom": "NORWALKH_603_A_LN:ACTUAL",
-        "Binde": "Non",
-        "Potentiel":"0.5/5",
-        "Outage": (
-              " Oui, 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
-              " Non, A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
-        ),
-    },
-    {
-        "CID_CES": 501284,
-        "Nom": "SALISBRY_690/FV_A_LN:ACTUAL",
-        "Binde": "Oui, -3771.96$ au DAM pour le mois.",
+        "CID_CES": 1002,
+        "Nom": "SUROWIEC - SOUTH INTERFACE (SURO_S)",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
         "Potentiel":"2/5",
         "Outage": (
-              " Oui, 1) Ligne: CRKT_VLY 345 KV LINE NY-Y17CD, du 1er au 21 novembre (Interim Approved);"
-              " Non, A) Unité: CPV TOWANTIC, du 10 oct au 9 novembre"
+              ""
         ),
     },
     {
-        "CID_CES": 1055,
-        "Nom": "WHITEFIELD SOUTH & GRPW (WTS+GR)",
-        "Binde": "Non",
+        "CID_CES": 1025,
+        "Nom": "NORTHERN NEW ENGLAND - SCOBIE+394 INTERFACE (NS_ST)",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"0.5/5",
+        "Outage": (
+              ""
+        ),
+    },
+    {
+        "CID_CES": 1004,
+        "Nom": "MAINE-NEW HAMPSHIRE INTERFACE (MENH)",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
         "Potentiel":"1/5",
-        "Outage": "LITTLETN 115 KV LINE U199, du 27 oct au 8 nov (Interim Approved)",
+        "Outage": (
+              ""
+        ),
+    },
+    {
+        "CID_CES": 22100708,
+        "Nom": "SALEM_T146E-1_A_LN:397",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"2./5",
+        "Outage": (
+              " Oui, 1) Ligne: W_SALEM 115 KV LINE S145E-2, du 4 au 5 déc (Study). Un seul historique de 2 jours en 2016"
+        ),
+    },
+    {
+        "CID_CES": 501358,
+        "Nom": "SALEM_T146E-1_A_LN:ACTUAL",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"2.5/5",
+        "Outage": (
+              " Oui, 1) Ligne: W_SALEM 115 KV LINE S145E-2, du 4 au 5 déc (Study). Un seul historique de 2 jours en 2016"
+        ),
+    },
+    {
+        "CID_CES": 4500005,
+        "Nom": "STARKS63-2ALN:ZB46",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"1/5",
+        "Outage": (
+              " Oui, 1) Ligne: HARTLAND 115 KV LINE 82-1, du 8 au 9 déc (Interim Approved);"
+              " Oui, 2) Ligne: DETROIT 115 KV LINE 82-2, du 10 au 11 dé (Interim Approved)"
+        ),
+    },
+    {
+        "CID_CES": 661405,
+        "Nom": "STARKS_278-1_A_LN:WYMK83-5",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"1/5",
+        "Outage": (
+              " Oui, 1) Ligne: HARTLAND 115 KV LINE 82-1, du 8 au 9 déc (Interim Approved);"
+              " Oui, 2) Ligne: DETROIT 115 KV LINE 82-2, du 10 au 11 dé (Interim Approved)"
+        ),
+    },
+    {
+        "CID_CES": 22102156,
+        "Nom": "WYMAN_HY_83-2_A_LN:63",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"1/5",
+        "Outage": (
+              " Oui, 1) Ligne: HARTLAND 115 KV LINE 82-1, du 8 au 9 déc (Interim Approved);"
+              " Oui, 2) Ligne: DETROIT 115 KV LINE 82-2, du 10 au 11 dé (Interim Approved)"
+        ),
+    },
+    {
+        "CID_CES": 610807,
+        "Nom": "WEINGART_1732-3_A_LN:ZB09",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"/5",
+        "Outage": (
+              " Oui, 1) Ligne: WEINGART 115 KV LINE 1732-2: WEINGART, du 3 noc au 5 déc (Approved)"
+        ),
+    },
+    {
+        "CID_CES": 610483,
+        "Nom": "HARTF_AV_E105_A_LN:F106",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"0.5/5",
+        "Outage": (
+              " Oui, 1) Ligne: PUTNM_PK 115 KV LINE T172N-6: WOLF_HL"
+        ),
+    },
+    {
+        "CID_CES": 610484,
+        "Nom": "HARTF_AV_F106_A_LN:E105",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"0.5/5",
+        "Outage": (
+              " Oui, 1) Ligne: PUTNM_PK 115 KV LINE T172N-6: WOLF_HL"
+        ),
     },
     {
         "CID_CES": 1080,
         "Nom": "Burgess Generation (BURG)",
-        "Binde": "Oui, -15251.69$ en RT et -14037.50$ au DAM pour le mois.",
-        "Potentiel":"3/5",
-        "Outage": "BERLN_NH 115 KV LINE S136: WHITEFLD, du 9 au 26 nov (Interim Approved)"
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"/5",
+        "Outage": (
+              " Oui, 1) Ligne: BERLN_NH 115 KV LINE S136: WHITEFLD, 3 jours séparés (Interim Approved)"
+        ),
+    },
+    {
+        "CID_CES": 1001,
+        "Nom": "ORRINGTON SOUTH (GENERIC CONSTRAINT) INTERFACE (ORR-SO)",
+        "Binde": "Oui, ...$ au RT et ...$ au DAM",
+        "Potentiel":"/5",
+        "Outage": (
+              ""
+        ),
     }
 ]
 
