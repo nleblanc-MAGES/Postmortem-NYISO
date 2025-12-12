@@ -407,16 +407,16 @@ display(df)
 - Il semble avoir un doublon de la contrainte NS_ST de contingence INTERFACE. Il a les CID_MAG 30002842 et 30002841, puis les CID_CES 1025 et 1024.
 
 ### Statistiques scénarios Monthly:
-- 1MA_Default: 4/6
-- 1MA_AvgHistSP: 5/6
-- 1MA_DL_AvgSP: 2/6
-- La combinaison capte: 5/6
+- 1MA_Default: /6
+- 1MA_AvgHistSP: /6
+- 1MA_DL_AvgSP: /6
+- La combinaison capte: /6
 
 ### Statistiques scénarios Daily:
-- 1DA_Default: 4/6
-- 1DA_AvgHistSP: 4/6
-- 1DA_DL_AvgSP: 6/6
-- La combinaison capte: 6/6
+- 1DA_Default: /6
+- 1DA_AvgHistSP: /6
+- 1DA_DL_AvgSP: /6
+- La combinaison capte: /6
 
 ### Comparaison avec les top contraintes de Yes
 ```{python}
@@ -451,12 +451,102 @@ scenario_histo_sp=[f'{market}_1MA_Default',f'{market}_1DA_Default',
 - CID_CES: 611104
 - CES_NAME = 'BERLN1771ALN:ZB16'
 - CONTINGENCYNAME: ZB16
-- La contrainte a bindé tous les jours au RT du 4-25 novembre (le plus était le 23 pour 2387.60$).
-- Elle a bindé tous les jours au DAM du 6-26 novembre (le plus était le 12 pour 1190.15$).
+- En RT, la contrainte n'a pas bindé.
+- Au DAM, elle a bindé du 2-3 (800.13, 898.00), 5-11 (4301.99, 5089.04, 11084.44, 12993.27, 8546.39, 3587.83, 1955.14) ... décembre.
 
 **Analyse :**
 
-- Il n'est pas clair dans dayzer pourquoi la contrainte binde, mais c'est probablement dû à la génération du 2087 Burgess BioPower et l'outage de ligne suivant dans le coin aient eu un effet. Les outages étaient présents dans les monthlys et les dailys.
+- La génération non renouvelable semble avoir contribué au binde de la contrainte.
+- L'outage suivant semble aussi avoir eu un effet.
+```{python}
+# | echo: false
+data = [
+{
+"Source": "NEISO",
+"Equipment": "N_BLOOM 345 KV LINE 3642",
+"Type": "LINE",
+"KV": 115,
+"Start": "12/05/2025 17:49",
+"End": "12/10/2025 11:56",
+"Planned Start": "12/05/2025 18:01",
+"Planned End": "12/10/2025 13:00",
+}
+]
+
+df = pd.DataFrame(data)
+display(df)
+```
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30000951,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+</details>
+
+<details>
+  <summary> DNEAST </summary>
+
+**Infos :**
+
+- CID_MAG: 30002921		
+- CID_CES: 1113
+- CES_NAME = 'Down East Export (DNEAST)'
+- CONTINGENCYNAME: INTERFACE
+- En RT, la contrainte a bindé le 1 (799.56), du 2-5 (1138.16, 1701.19, 947.33), 7-11 (762.35, 2325.62, 214.31, 927.55, 19.54) ... décembre.
+- Au DAM, elle a bindé du 1-5 (329.58, 88.60, 571.44, 671.49, 217.53), le 8 (1152.28), du 10-12 (637.08, 3214.75, 3021.53) ... décembre.
+
+**Analyse :**
+
+- La contrainte semble avoir bindé à cause de la génération de vent (15673 Downeast Wind, 18033 Weaver Wind Maine, 18026 Hancock Wind ME, 18018 BULL HILL WIND).
+
+```{python}
+# | echo: false
+
+cu.get_all_cstr_data(pool_id,
+                      30002921,
+                      ftrstartdate,
+                      ftrenddate,
+                      histostartdate,
+                      histoenddate,
+                      scenario_flows,
+                      scenario_first_priority,
+                      scenario_sf,
+                      scenario_histo_sp,
+                      conn
+                      )
+
+```
+
+</details> 
+
+<details>
+  <summary> BURG </summary>
+
+**Infos :**
+
+- CID_MAG: 30002892
+- CID_CES: 1080
+- CES_NAME = 'Burgess Generation (BURG)'
+- CONTINGENCYNAME: INTERFACE
+- En RT, la contrainte a bindé le 5 (2418.64), 12 (153.04) ... décembre.
+- Au DAM, elle a bindé le 5 (2903.75), 12 (870.90) ... décembre.
+
+**Analyse :**
+
+- Il n'est pas clair dans dayzer pourquoi la contrainte binde, mais c'est probablement dû à la génération du 2087 Burgess BioPower et l'outage de ligne suivant dans le coin, qui est présent trois jours (5, 12, 19) décembre. On ne voit pas l'effet de l'outage dans nos simulations.
 
 ```{python}
 # | echo: false
@@ -466,30 +556,30 @@ data = [
 "Equipment": "BERLN_NH 115 KV LINE S136: WHITEFLD",
 "Type": "LINE",
 "KV": 115,
-"Start": "11/09/2025 04:49",
-"End": "11/26/2025 ...",
-"Planned Start": "11/09/2025 04:30",
-"Planned End": "11/26/2025 19:00",
+"Start": "12/05/2025 04:35",
+"End": "12/05/2025 17:53",
+"Planned Start": "12/05/2025 04:30",
+"Planned End": "12/05/2025 19:00",
 },
 {
 "Source": "NEISO",
-"Equipment": "WHITEFLD 115 KV BRKR S1360",
+"Equipment": "BERLN_NH 115 KV LINE S136: WHITEFLD",
 "Type": "LINE",
 "KV": 115,
-"Start": "11/09/2025 04:49",
-"End": "11/26/2025 ...",
-"Planned Start": "11/09/2025 04:30",
-"Planned End": "11/26/2025 19:00",
+"Start": "12/12/2025 04:35",
+"End": "12/12/2025 17:53",
+"Planned Start": "12/12/2025 04:30",
+"Planned End": "12/12/2025 19:00",
 },
 {
 "Source": "NEISO",
-"Equipment": "WHITEFLD 115 KV BRKR 03601/03",
+"Equipment": "BERLN_NH 115 KV LINE S136: WHITEFLD",
 "Type": "LINE",
 "KV": 115,
-"Start": "11/09/2025 04:49",
-"End": "11/26/2025 ...",
-"Planned Start": "11/09/2025 04:30",
-"Planned End": "11/26/2025 19:00",
+"Start": "12/19/2025 04:35",
+"End": "12/19/2025 17:53",
+"Planned Start": "12/19/2025 04:30",
+"Planned End": "12/19/2025 19:00",
 }
 ]
 
@@ -517,65 +607,26 @@ cu.get_all_cstr_data(pool_id,
 </details>
 
 <details>
-  <summary> BURG </summary>
+  <summary> KR-EXP </summary>
 
 **Infos :**
 
-- CID_MAG: 30002892
-- CID_CES: 1080
-- CES_NAME = 'Burgess Generation (BURG)'
+- CID_MAG: 30002862
+- CID_CES: 1047
+- CES_NAME = 'KEENE ROAD EXPORT INTERFACE (KR-EXP)'
 - CONTINGENCYNAME: INTERFACE
-- La contrainte a bindé tous les jours au RT du 4-25 novembre (le plus était le 23 pour 2387.60$).
-- Elle a bindé tous les jours au DAM du 6-26 novembre (le plus était le 12 pour 1190.15$).
+- En RT, la contrainte a bindé le 1 (477.32), 4 (1236.49), 12 (2284.20) ... décembre.
+- Au DAM, elle a bindé le 1 (110.27), 4 (43.34), du 11-12 (624.51, 2568.88)... décembre.
 
 **Analyse :**
 
-- Il n'est pas clair dans dayzer pourquoi la contrainte binde, mais c'est probablement dû à la génération du 2087 Burgess BioPower et l'outage de ligne suivant dans le coin aient eu un effet. Les outages étaient présents dans les monthlys et les dailys.
-
-```{python}
-# | echo: false
-data = [
-{
-"Source": "NEISO",
-"Equipment": "BERLN_NH 115 KV LINE S136: WHITEFLD",
-"Type": "LINE",
-"KV": 115,
-"Start": "11/09/2025 04:49",
-"End": "11/26/2025 ...",
-"Planned Start": "11/09/2025 04:30",
-"Planned End": "11/26/2025 19:00",
-},
-{
-"Source": "NEISO",
-"Equipment": "WHITEFLD 115 KV BRKR S1360",
-"Type": "LINE",
-"KV": 115,
-"Start": "11/09/2025 04:49",
-"End": "11/26/2025 ...",
-"Planned Start": "11/09/2025 04:30",
-"Planned End": "11/26/2025 19:00",
-},
-{
-"Source": "NEISO",
-"Equipment": "WHITEFLD 115 KV BRKR 03601/03",
-"Type": "LINE",
-"KV": 115,
-"Start": "11/09/2025 04:49",
-"End": "11/26/2025 ...",
-"Planned Start": "11/09/2025 04:30",
-"Planned End": "11/26/2025 19:00",
-}
-]
-
-df = pd.DataFrame(data)
-display(df)
-```
+- La contrainte semble avoir bindé à cause de la génération de vent (ROLLINS WIND PLANT, STETSON WIND FARM, et STETSON II WIND FARM) et d'hydro (Greatlakes Millinocket Hydro).
 
 ```{python}
 # | echo: false
 
 cu.get_all_cstr_data(pool_id,
-                      30002892,
+                      30002862,
                       ftrstartdate,
                       ftrenddate,
                       histostartdate,
@@ -588,6 +639,7 @@ cu.get_all_cstr_data(pool_id,
                       )
 
 ```
+
 </details>
 
 <details>
@@ -599,76 +651,63 @@ cu.get_all_cstr_data(pool_id,
 - CID_CES: 1059
 - CES_NAME = 'Inner Rumford Export (IRMF-E)'
 - CONTINGENCYNAME: INTERFACE
-- Elle a bindé en RT du 14-16 (1.66, 1639.34, 798.09), 19-21 (240.89, 60.01, 320.90) et 23-24 (7.83, 109.17) novembre.
-- Elle a bindé au DAM le 1 nov (134.68), 15-16 (667.34, 721.06), 19 (198.06), 21 (170.35) et 24 (377.75).
+- En RT, la contrainte a bindé le 1 (871.47), du 7-9 (83.26, 512.70, 201.06), 11-12 (342.33, 40.92) décembre.
+- Au DAM, elle a bindé le 1 (267.06), 5 (1466.87), du 8-9 (665.31, 18.76), 11-12 (435.93, 2.92) ... décembre.
 
 **Analyse :**
 
 - La contrainte semble binder à cause des outages suivants et de la combinaison de la génération non renouvelable (1970 RUMFORD POWER), du vent (RECORD HILL WIND, Saddleback Mountain Wind, Rox Wind, Canton Mountain Wind) et d'hydro (52108 RUMFORD FALLS).
-- L'outage suivante pourrait avoir contribué au binde de la contrainte le 1er novembre:
+
+- Les outages suivant pourraient avoir contribué au binde de la contrainte du 1-5 décembre.
 
 ```{python}
 # | echo: false
 data = [
 {
 "Source": "NEISO",
-"Equipment": "WOODSTCK 115 KV LINE 210: WOODSTCK",
+"Equipment": "WYMAN_HY 115 KV LINE 63-1",
 "Type": "LINE",
 "KV": 115,
-"Start": "10/27/2025 08:40",
-"End": "11/07/2025 14:53",
-"Planned Start": "10/27/2025 07:30",
-"Planned End": "11/07/2025 14:00",
-}
-]
-
-df = pd.DataFrame(data)
-display(df)
-```
-
-- Les outages suivants ont possiblement contribué au binde de la contrainte du 14-25 novembre:
-
-```{python}
-# | echo: false
-data = [
+"Start": "12/01/2025 06:19",
+"End": "12/03/2025 15:08",
+"Planned Start": "12/01/2025 06:00",
+"Planned End": "12/03/2025 16:00",
+},
 {
 "Source": "NEISO",
-"Equipment": "RAYMOND 115 KV LINE 209: RAYMOND",
+"Equipment": "STARKS 115 KV LINE 63-2",
 "Type": "LINE",
 "KV": 115,
-"Start": "11/12/2025 14:08",
-"End": "11/25/2025 14:38",
-"Planned Start": "11/12/2025 14:08",
-"Planned End": "11/25/2025 16:00",
-}
-]
-
-df = pd.DataFrame(data)
-display(df)
-```
-
-
-- L'outage suivante a possiblement contribé au binde de la contrainte le 24 novembre:
-
-```{python}
-# | echo: false
-data = [
+"Start": "12/04/2025 07:46",
+"End": "12/05/2025 13:53",
+"Planned Start": "12/04/2025 06:00",
+"Planned End": "12/05/2025 16:00",
+},
 {
 "Source": "NEISO",
 "Equipment": "LOVELL 115 KV LINE 214-3: LOVELL",
 "Type": "LINE",
 "KV": 115,
-"Start": "11/24/2025 06:50",
-"End": "11/26/2025 17:23",
-"Planned Start": "11/24/2025 06:00",
-"Planned End": "11/26/2025 18:00",
+"Start": "12/01/2025 08:14",
+"End": "12/01/2025 18:53",
+"Planned Start": "12/01/2025 06:00",
+"Planned End": "12/05/2025 18:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "LOVELL 115 KV LINE 214-3: LOVELL",
+"Type": "LINE",
+"KV": 115,
+"Start": "12/03/2025 08:21",
+"End": "12/04/2025 16:38",
+"Planned Start": "12/03/2025 06:00",
+"Planned End": "12/05/2025 18:00",
 }
 ]
 
 df = pd.DataFrame(data)
 display(df)
 ```
-
 
 ```{python}
 # | echo: false
@@ -691,34 +730,56 @@ cu.get_all_cstr_data(pool_id,
 
 
 <details>
-  <summary> WYMAN_HY215ALN </summary>
+  <summary> SHAWS_HL1272ALN </summary>
 
 **Infos :**
 
-- CID_MAG: 30002480		
-- CID_CES: 501212
-- CES_NAME = 'WYMAN_HY_215_A_LN:ACTUAL'
-- CONTINGENCYNAME: ACTUAL
-- Elle a bindé en RT le 3 novembre (265.73).
-- Elle a bindé au DAM le 3 (703.33) et 4 (937.34) novembre.
+- CID_MAG: 30001155		
+- CID_CES: 611330
+- CES_NAME = 'SHAWS_HL1272ALN:1340'
+- CONTINGENCYNAME: 1340
+- En RT, la contrainte n'a pas bindé en décembre.
+- Au DAM, elle a bindé du 8-12 (225.41, 94.23, 382.99, 882.80, 409.01) ... décembre.
 
 **Analyse :**
 
-- Il a l'outage de circuit breaker suivant dans le coin qui a sûrement causé le binde de la contrainte. Cet outage n'est pas dans dayzer, car il ne modélise pas bien les circuits breakers.
+- La génération non-renouvelable (225 CPV Towantic, 1758 Bridgeport NCC, 1821 BRIDGEPORT ENERGY 1, 1775 MILFORD POWER 2, 1774 MILFORD POWER 1) met de la pression.
+- Les outages suivants créent de la congestion:		
 
 ```{python}
 # | echo: false
 data = [
 {
 "Source": "NEISO",
-"Equipment": "WYMAN_HY 115 KV BRKR K215-1: 215",
-"Type": "BRKR",
+"Equipment": "BESECK 345 KV LINE 3827: BESECK",
+"Type": "LINE",
 "KV": 115,
-"Start": "11/03/2025 06:36",
-"End": "11/04/2025 08:53",
-"Planned Start": "11/03/2025 07:00",
-"Planned End": "11/05/2025 12:00",
-},	
+"Start": "12/01/2025 13:17",
+"End": "12/.../2025 ...:...",
+"Planned Start": "12/01/2025 08:00",
+"Planned End": "11/12/2025 16:00",
+},
+{
+"Source": "NEISO",
+"Equipment": "OXFORD 115 KV LINE 1403",
+"Type": "LINE",
+"KV": 115,
+"Start": "12/07/2025 20:58",
+"End": "12/.../2025 ...:...",
+"Planned Start": "12/08/2025 01:00",
+"Planned End": "12/15/2025 10:30",
+},
+{
+"Source": "NEISO",
+"Equipment": "FRSTBRDG 115 KV LINE 1721: FRSTBRDG",
+"Type": "LINE",
+"KV": 115,
+"Start": "12/07/2025 22:54",
+"End": "12/08/2025 ...:...",
+"Planned Start": "12/08/2025 01:00",
+"Planned End": "12/15/2025 10:30",
+},
+
 ]
 
 df = pd.DataFrame(data)
@@ -748,79 +809,10 @@ cu.get_all_cstr_data(pool_id,
 
 </details>
 
-<details>
-  <summary> KR-EXP </summary>
-
-**Infos :**
-
-- CID_MAG: 30002862
-- CID_CES: 1047
-<!-- - MKUNITCID: 25583_1044 -->
-- CES_NAME = 'KEENE ROAD EXPORT INTERFACE (KR-EXP)'
-- CONTINGENCYNAME: INTERFACE
-- Elle a bindé en RT le 1 (1077.97), du 4-6 (1032.46, 14.59, 76.01) et 29 novembre (298.60).
-- Elle a bindé au DAM du 1-4 (297.86, 13.71, 198.15, 321.77), le 6 (618.55), 7 (5.89), du 17-18 (145.11, 30.07) et le 29 novembre (8.98).
-
-**Analyse :**
-
-- La contrainte semble avoir bindé à cause de la génération de vent (ROLLINS WIND PLANT, STETSON WIND FARM, et STETSON II WIND FARM) et d'hydro (Greatlakes Millinocket Hydro).
-
-```{python}
-# | echo: false
-
-cu.get_all_cstr_data(pool_id,
-                      30002862,
-                      ftrstartdate,
-                      ftrenddate,
-                      histostartdate,
-                      histoenddate,
-                      scenario_flows,
-                      scenario_first_priority,
-                      scenario_sf,
-                      scenario_histo_sp,
-                      conn
-                      )
-
-```
-
-</details>
 
 
-<details>
-  <summary> DNEAST </summary>
 
-**Infos :**
 
-- CID_MAG: 30002921		
-- CID_CES: 1113
-- CES_NAME = 'Down East Export (DNEAST)'
-- CONTINGENCYNAME: INTERFACE
-- Elle a bindé en RT le 25 (-88.38) et du 27-30 novembre (-100.41, -159.22, -1025.75, -639.79).
-- Elle a bindé au DAM du 28-30 novembre (-280.04, -731.51, -398.76).
-
-**Analyse :**
-
-- La contrainte semble avoir bindé à cause de la génération de vent (15673 Downeast Wind, 18033 Weaver Wind Maine, 18026 Hancock Wind ME, 18018 BULL HILL WIND).
-
-```{python}
-# | echo: false
-
-cu.get_all_cstr_data(pool_id,
-                      30002921,
-                      ftrstartdate,
-                      ftrenddate,
-                      histostartdate,
-                      histoenddate,
-                      scenario_flows,
-                      scenario_first_priority,
-                      scenario_sf,
-                      scenario_histo_sp,
-                      conn
-                      )
-
-```
-
-</details> 
  
 
 <details>
