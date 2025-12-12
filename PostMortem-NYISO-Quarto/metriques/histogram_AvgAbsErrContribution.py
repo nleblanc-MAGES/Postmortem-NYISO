@@ -28,7 +28,12 @@ def compute_tp_diff(df, sp_col, scenario_col):
     df[scenario_col] = money_to_float(df[scenario_col])
     
     # TP = both nonzero
-    tp = df[(df[sp_col] != 0) & (df[scenario_col] != 0)].copy()
+    # tp = df[(df[sp_col] != 0) & (df[scenario_col] != 0)].copy()
+    tp = df[
+        (df[sp_col] != 0)
+        & (df[scenario_col] != 0)
+        & (df[scenario_col].abs() > 50) # cutoff_SP=50
+    ].copy()
 
     # Absolute difference
     tp["abs_diff"] = (tp[sp_col].abs() - tp[scenario_col].abs()).abs()
@@ -45,12 +50,12 @@ def plot_constraint_percent(tp_df, constraint_col, scenario_name):
         x=constraint_col,
         y="pct_diff",
         hover_data=["abs_diff"],
-        title=f"Percent Contribution by Constraint — {scenario_name}",
+        title=f"% de la Contribution par Contrainte — {scenario_name}",
     )
 
     fig.update_layout(
-        xaxis_title="Constraint",
-        yaxis_title="% of Total Absolute Difference",
+        xaxis_title="Contrainte",
+        yaxis_title="% du total de la Différence Absolue",
         xaxis_tickangle=-45,
         bargap=0.25
     )

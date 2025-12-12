@@ -36,6 +36,10 @@ from IPython.display import Image, display
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import plotly.express as px
+import plotly.graph_objects as go
+from metriques.histogram_AvgAbsErrContribution import money_to_float, compute_tp_diff, plot_constraint_percent
+
 conn=init_connection()
 ```
 
@@ -254,10 +258,10 @@ fig.show()
     
 ```
 
-## 𝄜 Top contraintes du mois
+- Contribution de chaque contrainte étant un TP pour chaque scénario de ce mois-ci
 
 ```{python}
-# | echo: false
+#| code-fold: true
 
 df_PM=sq.get_PostMortem(pool_id
                         ,start_date
@@ -273,6 +277,45 @@ exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
 for col in df_PM.columns:
     if col not in exclude_columns:
         df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
+
+constraint_col = "CONSTRAINTNAME"
+
+df_PM.columns = df_PM.columns.str.replace("'", "")
+
+# 1) Default
+tp_default = compute_tp_diff(df_PM, "SP_DA", "NEPOOL_1MA_Default")
+plot_constraint_percent(tp_default, constraint_col, "NEPOOL_1MA_Default")
+
+# 2) AvgHistSP scenario
+tp_avgHist = compute_tp_diff(df_PM, "SP_DA", "NEPOOL_1MA_AvgHistSP")
+plot_constraint_percent(tp_avgHist, constraint_col, "NEPOOL_1MA_AvgHistSP")
+
+# 3) DL_AvgSP scenario
+tp_dl_avgSP = compute_tp_diff(df_PM, "SP_DA", "NEPOOL_1MA_DL_AvgSP")
+plot_constraint_percent(tp_dl_avgSP, constraint_col, "NEPOOL_1MA_DL_AvgSP")
+
+
+```
+
+## 𝄜 Top contraintes du mois
+
+```{python}
+# | echo: false
+
+# df_PM=sq.get_PostMortem(pool_id
+#                         ,start_date
+#                         ,end_date
+#                         ,[f'{market}_1MA_Default', f'{market}_1MA_AvgHistSP', f'{market}_1MA_DL_AvgSP',
+#                         f'{market}_1DA_Default', f'{market}_1DA_AvgHistSP', f'{market}_1DA_DL_AvgSP',]
+#                         ,conn)
+
+# df_PM.fillna(0,inplace=True)
+# exclude_columns = ["CID_MAG", "CID_CES", "CONSTRAINTNAME","CONTINGENCYNAME"]
+
+# # Apply formatting to all other columns
+# for col in df_PM.columns:
+#     if col not in exclude_columns:
+#         df_PM[col] = df_PM[col].apply(lambda x: f"${x:,}")
 
 # Apply formatting to all other numeric columns
 
